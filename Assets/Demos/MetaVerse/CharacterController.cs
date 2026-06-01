@@ -19,6 +19,11 @@ public class CharacterController : MonoBehaviour
     public float AttackSlowMultiplier = 0.35f;
     public float AttackSlowDuration = 1.25f;
     public float AttackKnockback = 1.25f;
+    public int HitsBeforeKnockDown = 3;
+    public float HitComboWindow = 2f;
+    public float HitAnimationDuration = 0.45f;
+    public float KnockDownDuration = 1.15f;
+    public float StandUpDuration = 1.1f;
     public Key Player1AttackKey = Key.RightCtrl;
     public Key Player2AttackKey = Key.Space;
     public Key Player1InteractKey = Key.RightShift;
@@ -34,10 +39,15 @@ public class CharacterController : MonoBehaviour
     float nextAttackTime;
     float slowedUntil;
     Coroutine hitFeedback;
+    Coroutine hitAnimationRoutine;
     Coroutine attackFeedback;
+    Coroutine knockDownRoutine;
     DrivableCar currentCar;
     Collider[] colliders;
+    int comboHitsReceived;
+    float lastHitTime;
     bool isDriving;
+    bool isKnockedDown;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -64,7 +74,7 @@ public class CharacterController : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
-        if (isDriving) {
+        if (isDriving || isKnockedDown) {
           Anim.SetFloat("Walk", 0f);
           return;
         }
@@ -96,7 +106,7 @@ public class CharacterController : MonoBehaviour
           ToggleCar();
         }
 
-        if (isDriving) { return; }
+        if (isDriving || isKnockedDown) { return; }
 
         Key attackKey = Player == CharacterPlayer.Player1 ? Player1AttackKey : Player2AttackKey;
         if (Keyboard.current[attackKey].wasPressedThisFrame) {
@@ -233,6 +243,7 @@ public class CharacterController : MonoBehaviour
 
     void TryAttack()
     {
+      if (isKnockedDown) { return; }
       if (Time.time < nextAttackTime) { return; }
 
       nextAttackTime = Time.time + AttackCooldown;
@@ -270,6 +281,8 @@ public class CharacterController : MonoBehaviour
 
     void ReceiveHit(Vector3 attackerPosition, float duration)
     {
+      if (isKnockedDown) { return; }
+
       slowedUntil = Mathf.Max(slowedUntil, Time.time + duration);
 
       Vector3 knockbackDirection = transform.position - attackerPosition;
@@ -282,6 +295,31 @@ public class CharacterController : MonoBehaviour
         StopCoroutine(hitFeedback);
       }
       hitFeedback = StartCoroutine(PlayHitFeedback());
+
+      if (Time.time - lastHitTime > HitComboWindow) {
+        comboHitsReceived = 0;
+      }
+
+      comboHitsReceived++;
+      lastHitTime = Time.time;
+
+      if (comboHitsReceived >= HitsBeforeKnockDown) {
+        comboHitsReceived = 0;
+        if (knockDownRoutine != null) {
+          StopCoroutine(knockDownRoutine);
+        }
+        if (hitAnimationRoutine != null) {
+          StopCoroutine(hitAnimationRoutine);
+          hitAnimationRoutine = null;
+        }
+        knockDownRoutine = StartCoroutine(PlayKnockDownSequence());
+      } else {
+        string hitState = comboHitsReceived % 2 == 0 ? "Hit_B" : "Hit_A";
+        if (hitAnimationRoutine != null) {
+          StopCoroutine(hitAnimationRoutine);
+        }
+        hitAnimationRoutine = StartCoroutine(PlayHitAnimation(hitState));
+      }
     }
 
     IEnumerator PlayAttackFeedback(CharacterController target)
@@ -341,6 +379,47 @@ public class CharacterController : MonoBehaviour
 
       transform.localScale = baseScale;
       ClearDamageColor();
+    }
+
+    IEnumerator PlayHitAnimation(string hitState)
+    {
+      Anim.CrossFade(hitState, 0.05f);
+
+      yield return new WaitForSeconds(HitAnimationDuration);
+
+      if (!isKnockedDown) {
+        Anim.CrossFade("Idle", 0.1f);
+      }
+
+      hitAnimationRoutine = null;
+    }
+
+    IEnumerator PlayKnockDownSequence()
+    {
+      if (hitFeedback != null) {
+        StopCoroutine(hitFeedback);
+        hitFeedback = null;
+        transform.localScale = baseScale;
+      }
+
+      isKnockedDown = true;
+      slowedUntil = Time.time + KnockDownDuration + StandUpDuration;
+      rb.linearVelocity = Vector3.zero;
+      rb.angularVelocity = Vector3.zero;
+      Anim.speed = 1f;
+      Anim.CrossFade("KnockDown", 0.05f);
+      SetDamageColor(new Color(1f, 0.18f, 0.12f, 1f));
+
+      yield return new WaitForSeconds(KnockDownDuration);
+
+      ClearDamageColor();
+      Anim.CrossFade("StandUp", 0.08f);
+
+      yield return new WaitForSeconds(StandUpDuration);
+
+      isKnockedDown = false;
+      knockDownRoutine = null;
+      Anim.CrossFade("Idle", 0.12f);
     }
 
     void SetDamageColor(Color color)
