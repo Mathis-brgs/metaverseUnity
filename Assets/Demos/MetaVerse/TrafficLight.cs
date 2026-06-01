@@ -13,9 +13,12 @@ public class TrafficLight : MonoBehaviour
     public float RedDuration = 4f;
     public float OrangeDuration = 1.2f;
     public float GreenDuration = 4f;
+    public Vector3 StopZoneOffset = new Vector3(0f, 0.8f, -3f);
+    public Vector3 StopZoneSize = new Vector3(5f, 2f, 1.5f);
     public Renderer RedRenderer;
     public Renderer OrangeRenderer;
     public Renderer GreenRenderer;
+    public TrafficLightStopZone StopZone;
 
     float timer;
 
@@ -26,6 +29,7 @@ public class TrafficLight : MonoBehaviour
     void Start()
     {
       EnsureVisuals();
+      EnsureStopZone();
       ApplyLightColors();
     }
 
@@ -91,5 +95,28 @@ public class TrafficLight : MonoBehaviour
       }
 
       return bulb.GetComponent<Renderer>();
+    }
+
+    void EnsureStopZone()
+    {
+      if (StopZone != null) { return; }
+
+      StopZone = GetComponentInChildren<TrafficLightStopZone>();
+      if (StopZone != null) {
+        StopZone.TrafficLight = this;
+        return;
+      }
+
+      GameObject stopZoneObject = new GameObject("Traffic Light Stop Zone");
+      stopZoneObject.transform.SetParent(transform, false);
+      stopZoneObject.transform.localPosition = StopZoneOffset;
+      stopZoneObject.transform.localRotation = Quaternion.identity;
+
+      BoxCollider stopCollider = stopZoneObject.AddComponent<BoxCollider>();
+      stopCollider.size = StopZoneSize;
+      stopCollider.isTrigger = true;
+
+      StopZone = stopZoneObject.AddComponent<TrafficLightStopZone>();
+      StopZone.TrafficLight = this;
     }
 }

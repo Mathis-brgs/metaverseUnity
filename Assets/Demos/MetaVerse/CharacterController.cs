@@ -176,7 +176,7 @@ public class CharacterController : MonoBehaviour
       Transform current = hitTransform;
 
       while (current != null) {
-        if (current.name.StartsWith("Car")) {
+        if (IsCarObjectName(current.name)) {
           root = current;
         }
 
@@ -186,6 +186,11 @@ public class CharacterController : MonoBehaviour
       if (root == null) { return null; }
 
       return root.gameObject.AddComponent<DrivableCar>();
+    }
+
+    bool IsCarObjectName(string objectName)
+    {
+      return objectName.Length > 3 && objectName.StartsWith("Car") && char.IsDigit(objectName[3]);
     }
 
     public void EnterCar(DrivableCar car)

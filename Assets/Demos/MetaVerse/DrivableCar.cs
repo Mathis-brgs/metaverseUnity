@@ -5,11 +5,17 @@ public class DrivableCar : MonoBehaviour
     public float DriveSpeed = 7f;
     public float ReverseSpeed = 3.5f;
     public float TurnSpeed = 120f;
-    public bool AutoDriveWhenEmpty = true;
+    public bool AutoDriveWhenEmpty = false;
+    public bool UseSceneAnimationWhenEmpty = true;
     public bool ParkAfterDriverExit = true;
     public float AutoDriveSpeed = 3f;
     public float RedLightLookAhead = 5f;
     public float CarLookAhead = 6f;
+    public float ObstacleLookAhead = 3.2f;
+    public float ObstacleCastRadius = 0.55f;
+    public float ObstacleCastHeight = 1.05f;
+    public float MinObstacleHeight = 0.55f;
+    public LayerMask ObstacleLayers = ~0;
     public float HornInterval = 1.6f;
     public Vector3 SeatOffset = new Vector3(0f, 1.1f, 0f);
     public Vector3 ExitOffset = new Vector3(1.8f, 0f, 0f);
@@ -18,9 +24,31 @@ public class DrivableCar : MonoBehaviour
     CharacterController driver;
     Rigidbody rb;
     AudioSource hornSource;
+    Animation sceneAnimation;
     bool parked;
     bool stoppedByTraffic;
+    bool sceneAnimationStarted;
     float nextHornTime;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    static void AutoSetupSceneCars()
+    {
+      Transform[] transforms = FindObjectsByType<Transform>(FindObjectsInactive.Exclude);
+      foreach (Transform current in transforms) {
+        if (!IsCarObjectName(current.name)) { continue; }
+        if (current.parent != null && IsCarObjectName(current.parent.name)) { continue; }
+        if (current.GetComponent<DrivableCar>() != null) { continue; }
+        if (current.GetComponentInChildren<Collider>() == null) { continue; }
+
+        DrivableCar car = current.gameObject.AddComponent<DrivableCar>();
+        car.AutoDriveWhenEmpty = current.GetComponentInChildren<Animation>() != null;
+      }
+    }
+
+    static bool IsCarObjectName(string objectName)
+    {
+      return objectName.Length > 3 && objectName.StartsWith("Car") && char.IsDigit(objectName[3]);
+    }
 
     public bool HasDriver {
       get { return driver != null; }
@@ -40,6 +68,7 @@ public class DrivableCar : MonoBehaviour
       rb.mass = 8f;
       rb.angularDamping = 4f;
       rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+      sceneAnimation = GetComponentInChildren<Animation>();
 
       if (GetComponentInChildren<Collider>() == null) {
         BoxCollider box = gameObject.AddComponent<BoxCollider>();
@@ -73,18 +102,22 @@ public class DrivableCar : MonoBehaviour
       if (driver != null) {
         parked = false;
         stoppedByTraffic = false;
+        SetSceneAnimationPlaying(false);
         DriveWithInput(driver.GetMoveInput());
         return;
       }
 
       if (parked) {
         stoppedByTraffic = false;
+        SetSceneAnimationPlaying(false);
         StopNow();
         return;
       }
 
       if (AutoDriveWhenEmpty) {
         DriveAutonomously();
+      } else {
+        SetSceneAnimationPlaying(false);
       }
     }
 
@@ -145,19 +178,49 @@ public class DrivableCar : MonoBehaviour
 
     void DriveAutonomously()
     {
-      bool blockedByCar = ShouldStopForCarAhead();
-      if (ShouldStopForRedLight() || blockedByCar) {
+      bool blockedByObstacle = ShouldStopForObstacleAhead(Mathf.Max(CarLookAhead, ObstacleLookAhead));
+      if (ShouldStopForRedLight() || blockedByObstacle) {
         stoppedByTraffic = true;
+        SetSceneAnimationPlaying(false);
         StopNow();
 
-        if (blockedByCar) {
+        if (blockedByObstacle) {
           Honk();
         }
         return;
       }
 
       stoppedByTraffic = false;
+      SetSceneAnimationPlaying(true);
+      if (UseSceneAnimationWhenEmpty && sceneAnimation != null) {
+        return;
+      }
+
       rb.MovePosition(rb.position + transform.forward * AutoDriveSpeed * Time.fixedDeltaTime);
+    }
+
+    void SetSceneAnimationPlaying(bool shouldPlay)
+    {
+      if (!UseSceneAnimationWhenEmpty || sceneAnimation == null) { return; }
+
+      sceneAnimation.enabled = true;
+
+      if (shouldPlay) {
+        SetSceneAnimationSpeed(1f);
+        if (!sceneAnimationStarted) {
+          sceneAnimation.Play();
+          sceneAnimationStarted = true;
+        }
+      } else {
+        SetSceneAnimationSpeed(0f);
+      }
+    }
+
+    void SetSceneAnimationSpeed(float speed)
+    {
+      foreach (AnimationState state in sceneAnimation) {
+        state.speed = speed;
+      }
     }
 
     bool ShouldStopForRedLight()
@@ -166,8 +229,15 @@ public class DrivableCar : MonoBehaviour
       RaycastHit[] hits = Physics.SphereCastAll(ray, 0.8f, RedLightLookAhead, ~0, QueryTriggerInteraction.Collide);
 
       foreach (RaycastHit hit in hits) {
+        if (IsOwnCollider(hit.collider)) { continue; }
+
         TrafficLightStopZone zone = hit.collider.GetComponent<TrafficLightStopZone>();
         if (zone != null && zone.ShouldStop(this)) {
+          return true;
+        }
+
+        TrafficLight trafficLight = hit.collider.GetComponentInParent<TrafficLight>();
+        if (trafficLight != null && trafficLight.IsRed && IsInFront(trafficLight.transform.position)) {
           return true;
         }
       }
@@ -175,17 +245,41 @@ public class DrivableCar : MonoBehaviour
       return false;
     }
 
-    bool ShouldStopForCarAhead()
+    bool ShouldStopForObstacleAhead(float lookAhead)
     {
-      Ray ray = new Ray(transform.position + Vector3.up * 0.8f, transform.forward);
-      RaycastHit[] hits = Physics.SphereCastAll(ray, 0.9f, CarLookAhead, ~0, QueryTriggerInteraction.Collide);
+      Ray ray = new Ray(transform.position + Vector3.up * ObstacleCastHeight, transform.forward);
+      RaycastHit[] hits = Physics.SphereCastAll(ray, ObstacleCastRadius, lookAhead, ObstacleLayers, QueryTriggerInteraction.Ignore);
 
       foreach (RaycastHit hit in hits) {
-        DrivableCar otherCar = hit.collider.GetComponentInParent<DrivableCar>();
-        if (otherCar == null || otherCar == this) { continue; }
-        if (!IsInFront(otherCar.transform.position)) { continue; }
+        if (IsOwnCollider(hit.collider)) { continue; }
+        if (!IsInFront(hit.collider.bounds.center)) { continue; }
+        if (IsTooLowToBlockCar(hit.collider)) { continue; }
 
-        return otherCar.IsStoppedForTraffic;
+        DrivableCar otherCar = hit.collider.GetComponentInParent<DrivableCar>();
+        CharacterController character = hit.collider.GetComponentInParent<CharacterController>();
+
+        if (otherCar != null || character != null || !hit.collider.isTrigger) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    bool IsTooLowToBlockCar(Collider hitCollider)
+    {
+      DrivableCar otherCar = hitCollider.GetComponentInParent<DrivableCar>();
+      CharacterController character = hitCollider.GetComponentInParent<CharacterController>();
+      if (otherCar != null || character != null) { return false; }
+
+      return hitCollider.bounds.max.y < transform.position.y + MinObstacleHeight;
+    }
+
+    bool IsOwnCollider(Collider hitCollider)
+    {
+      if (hitCollider == null) { return false; }
+      if (hitCollider.transform == transform || hitCollider.transform.IsChildOf(transform)) {
+        return true;
       }
 
       return false;
