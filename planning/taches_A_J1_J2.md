@@ -6,36 +6,28 @@
 
 ---
 
-## J1 — Lundi 1 juin
+## J1 — Lundi 1 juin ✅
 
-### 1. Lire et auditer le code réseau existant
-
-Lire ces deux fichiers en entier et noter les limitations :
+### ✅ 1. Lire et auditer le code réseau existant
 
 - `Assets/Demos/TCP/TCPServer.cs`
 - `Assets/Demos/TCP/TCPClient.cs`
 
-**Limitations à identifier (déjà repérées) :**
+**Limitations identifiées :**
 
 | Problème | Ligne concernée | Impact |
 |---|---|---|
 | Pas d'identifiant client | `Connections` = liste de `TcpClient` bruts | On ne sait pas quel joueur envoie quoi |
-| Suppression pendant itération | `TCPServer.cs:113` | Crash potentiel si un client déconnecte |
-| Pas de délimiteur de message | `ParseString()` | Deux messages consécutifs peuvent arriver concaténés |
+| Suppression pendant itération | `TCPServer.cs:113` — `Connections.Remove(client)` dans un `foreach` | `InvalidOperationException` au runtime dès qu'un client déconnecte. Le `return` masque le bug mais saute la lecture des autres clients ce frame-là |
+| Pas de délimiteur de message | `ParseString()` ligne 133 | TCP est un flux : deux messages envoyés d'affilée peuvent arriver collés dans le même `Read()`. `ParseString` ne sait pas où l'un finit et l'autre commence → **solution : terminer chaque message par `\n`** |
 | Lecture bloquante dans `Update()` | `ReceiveTCP()` | Risque de freeze Unity si beaucoup de data |
 | Pas de thread dédié | tout le fichier | Scalabilité limitée |
 
-> Ces limitations, tu n'as **pas** à les corriger aujourd'hui. Tu dois juste les noter pour concevoir ton serveur standalone proprement dès J3.
-
 ---
 
-### 2. Décider TCP vs UDP par type de message
+### ✅ 2. Décider TCP vs UDP par type de message
 
-Le projet doit utiliser **les deux protocoles** pour avoir les points "réduction latence/bande passante".
-
-Complète ce tableau et valide-le avec l'équipe en fin de J1 :
-
-| Type d'événement | Fréquence | Protocole choisi | Raison |
+| Type d'événement | Fréquence | Protocole | Raison |
 |---|---|---|---|
 | Position du joueur | ~20x/sec | **UDP** | Perte acceptable, vitesse prioritaire |
 | Connexion / déconnexion | 1x | **TCP** | Fiabilité obligatoire |
@@ -45,102 +37,74 @@ Complète ce tableau et valide-le avec l'équipe en fin de J1 :
 
 ---
 
-### 3. Définir les types de messages du protocole
+### ✅ 3. Définir les types de messages du protocole
 
-Ton protocole doit avoir un champ `type` dans chaque message.
-Commence avec **JSON** (plus facile à déboguer), on optimisera après.
-
-Liste minimale de messages à définir aujourd'hui :
-
-```
-MSG_JOIN          client → serveur   (je veux rejoindre)
-MSG_WELCOME       serveur → client   (bienvenue, voici ton ID + état du monde)
-MSG_MOVE          client → serveur   (ma nouvelle position)
-MSG_STATE         serveur → tous     (état global ou delta de positions)
-MSG_PLAYER_JOIN   serveur → tous     (un joueur vient de rejoindre)
-MSG_PLAYER_LEFT   serveur → tous     (un joueur vient de partir)
-MSG_BONUS_TAKEN   serveur → tous     (bonus X a été collecté par joueur Y)
-```
+| Message | Expéditeur | Destinataire | Protocole |
+|---|---|---|---|
+| `JOIN` | Client | Serveur | TCP |
+| `INIT_STATE` | Serveur | Nouveau client | TCP |
+| `PLAYER_JOIN` | Serveur | Tous les autres | TCP |
+| `PLAYER_LEFT` | Serveur | Tous | TCP |
+| `MOVE` | Client | Serveur | UDP |
+| `STATE` | Serveur | Tous | UDP |
+| `TAKE` | Client | Serveur | TCP |
+| `BONUS_TAKEN` | Serveur | Tous | TCP |
 
 ---
 
 ## J2 — Mardi 2 juin
 
-### 4. Écrire le format exact de chaque message
+### ✅ 4. Écrire le format exact de chaque message
 
-Pour chaque message listé ci-dessus, rédige le JSON complet.
-Voici un exemple à compléter et étendre :
-
-```json
-// MSG_JOIN  — client → serveur
-{ "type": "JOIN", "playerName": "Alice" }
-
-// MSG_WELCOME  — serveur → client
-{
-  "type": "WELCOME",
-  "playerId": "p1",
-  "players": [
-    { "id": "p2", "name": "Bob", "x": 1.5, "y": 0.0, "z": 3.2, "rotY": 45.0, "score": 3 }
-  ],
-  "bonuses": [
-    { "id": "b0", "x": 2.0, "y": 0.5, "z": -1.0 },
-    { "id": "b1", "x": -3.0, "y": 0.5, "z": 4.0 }
-  ]
-}
-
-// MSG_MOVE  — client → serveur (UDP)
-{ "type": "MOVE", "playerId": "p1", "x": 1.5, "y": 0.0, "z": 3.2, "rotY": 45.0 }
-
-// MSG_STATE  — serveur → tous les clients (UDP, ~20x/sec)
-{
-  "type": "STATE",
-  "players": [
-    { "id": "p1", "x": 1.5, "y": 0.0, "z": 3.2, "rotY": 45.0 },
-    { "id": "p2", "x": -2.0, "y": 0.0, "z": 1.0, "rotY": 90.0 }
-  ]
-}
-
-// MSG_BONUS_TAKEN  — serveur → tous (TCP)
-{ "type": "BONUS_TAKEN", "bonusId": "b0", "byPlayerId": "p1" }
-
-// MSG_PLAYER_JOIN  — serveur → tous (TCP)
-{ "type": "PLAYER_JOIN", "playerId": "p3", "name": "Charlie", "x": 0.0, "y": 0.0, "z": 0.0 }
-
-// MSG_PLAYER_LEFT  — serveur → tous (TCP)
-{ "type": "PLAYER_LEFT", "playerId": "p3" }
-```
+→ Voir `planning/protocol.md` (fichier créé, tous les formats JSON documentés)
 
 ---
 
-### 5. Documenter l'architecture serveur
+### ✅ 5. Documenter l'architecture serveur
 
-Rédige un fichier `planning/protocol.md` avec :
-
-1. Le schéma de flux de données (qui envoie quoi à qui)
-2. Le tableau TCP vs UDP finalisé
-3. Tous les formats de messages JSON
-
-**Schéma de flux à rédiger :**
+**Architecture réseau locale (réseau école) :**
 
 ```
-Client A ──MOVE(UDP)──────────────────┐
-Client B ──MOVE(UDP)──────────────────┤
-Client C ──MOVE(UDP)──────────────────► SERVEUR ──STATE(UDP broadcast)──► tous les clients
-                                      │
-Client A ──JOIN(TCP)──────────────────┤
-                                      └──WELCOME(TCP)──► Client A
-                                       ──PLAYER_JOIN(TCP broadcast)──► B, C
+PC de A ──────────────────────────────────────────────
+│  Serveur C# console app                             │
+│  IP locale ex: 192.168.x.x                          │
+│  Port TCP : 25000  |  Port UDP : 25001              │
+└─────────────────────────────────────────────────────┘
+         ↑              ↑              ↑
+      PC de B        PC de C        PC de D
+    (Unity client)  (Unity client)  (Unity client)
+```
+
+**Pourquoi console app et pas Unity :**
+- Unity a besoin d'une fenêtre et d'un GPU pour tourner — inutile côté serveur
+- Une console app C# tourne partout, déployable sur cloud Linux sans écran
+- Pas de dépendance à la boucle de rendu Unity
+
+**Trouver son IP locale (Mac) :**
+```bash
+ipconfig getifaddr en0
+```
+
+**Schéma de flux :**
+```
+Client A ──JOIN(TCP)─────────────────► SERVEUR ──INIT_STATE(TCP)──────► Client A
+                                               ──PLAYER_JOIN(TCP)────► B, C, D
+
+Client A ──MOVE(UDP)─────────────────► SERVEUR ──STATE(UDP broadcast)─► A, B, C, D
+Client B ──MOVE(UDP)─────────────────►
+Client C ──MOVE(UDP)─────────────────►
+
+Client A ──TAKE(TCP)─────────────────► SERVEUR ──BONUS_TAKEN(TCP)────► A, B, C, D
+
+Client A  déconnecte                   SERVEUR ──PLAYER_LEFT(TCP)─────► B, C, D
 ```
 
 ---
 
 ### Livrable fin J2 (à partager avec B, C et D)
 
-- [ ] `planning/protocol.md` complété avec tous les formats de messages
-- [ ] Tableau TCP/UDP validé avec l'équipe
-- [ ] Liste des limitations du `TCPServer.cs` existant documentée
-- [ ] Architecture serveur standalone planifiée (console C#, pas Unity)
-- [ ] Schéma de flux partagé avec D pour qu'il puisse construire sa table de routage dès J3
-
-> **Note :** Le serveur que tu vas construire en J3 sera une **application console C# standalone**,
-> pas un MonoBehaviour Unity. Plus simple à déployer sur cloud et plus performant.
+- [x] `planning/protocol.md` complété avec tous les formats de messages
+- [x] Tableau TCP/UDP validé
+- [x] Limitations du `TCPServer.cs` documentées
+- [x] Architecture serveur standalone planifiée (console C#, pas Unity)
+- [ ] Schéma de flux partagé avec D pour qu'il construise sa table de routage dès J3
