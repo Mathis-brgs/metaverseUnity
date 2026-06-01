@@ -1,13 +1,25 @@
-/.vscode/
-/Library/
-/obj/
+# Unity generated (régénérés automatiquement, ne jamais committer)
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# Fichiers projet C# (régénérés par Unity à l'ouverture)
 *.csproj
 *.sln
-/Temp/
+*.slnx
+
+# Éditeurs
+/.vscode/
 /.vs/
-/Log/
-/Logs/
-/Build/
-*.0.2.zip
+*.userprefs
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Archives
 *.zip
-/UserSettings/

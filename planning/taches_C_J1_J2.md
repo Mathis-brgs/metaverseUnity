@@ -159,7 +159,7 @@ Questions à poser à A en fin de J2 :
 
 ---
 
-### Livrable fin J2 (à partager avec A et B)
+### Livrable fin J2 (à partager avec A, B et D)
 
 - [ ] Repo GitHub créé, `.gitignore` en place, branches créées
 - [ ] README.md avec nom du projet, membres de l'équipe, instructions de lancement
@@ -177,6 +177,10 @@ Faire un appel ou se retrouver pour aligner :
 1. **A** présente le protocole JSON finalisé
 2. **B** présente le plan du `NetworkManager`
 3. **C** présente le `WorldState`
+4. **D** présente la liste des cas limites identifiés
 
 Vérifier que les noms de champs JSON de A correspondent aux propriétés de C
 (ex : A utilise `"x"` et C a `float X` → OK, mais le vérifier ensemble).
+
+Vérifier que les cas limites de D sont couverts par le protocole de A
+(ex : est-ce qu'il y a un message pour signaler un timeout ?).

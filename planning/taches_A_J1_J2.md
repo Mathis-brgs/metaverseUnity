@@ -1,7 +1,8 @@
 # Tâches J1–J2 — A : Architecte Réseau
 
 > **Objectif de la phase Cadrage :** sortir avec un protocole documenté et une architecture serveur claire,
-> que B et C peuvent utiliser comme référence dès J3.
+> que B, C et D peuvent utiliser comme référence dès J3.
+> **D dépend directement de ton travail** — il ne peut pas concevoir le routage des messages sans ton protocole finalisé.
 
 ---
 
@@ -133,12 +134,13 @@ Client A ──JOIN(TCP)──────────────────�
 
 ---
 
-### Livrable fin J2 (à partager avec B et C)
+### Livrable fin J2 (à partager avec B, C et D)
 
 - [ ] `planning/protocol.md` complété avec tous les formats de messages
 - [ ] Tableau TCP/UDP validé avec l'équipe
 - [ ] Liste des limitations du `TCPServer.cs` existant documentée
 - [ ] Architecture serveur standalone planifiée (console C#, pas Unity)
+- [ ] Schéma de flux partagé avec D pour qu'il puisse construire sa table de routage dès J3
 
 > **Note :** Le serveur que tu vas construire en J3 sera une **application console C# standalone**,
 > pas un MonoBehaviour Unity. Plus simple à déployer sur cloud et plus performant.
