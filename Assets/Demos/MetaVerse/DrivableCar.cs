@@ -6,17 +6,28 @@ public class DrivableCar : MonoBehaviour
     public float ReverseSpeed = 3.5f;
     public float TurnSpeed = 120f;
     public bool AutoDriveWhenEmpty = true;
+    public bool ParkAfterDriverExit = true;
     public float AutoDriveSpeed = 3f;
     public float RedLightLookAhead = 5f;
+    public float CarLookAhead = 6f;
+    public float HornInterval = 1.6f;
     public Vector3 SeatOffset = new Vector3(0f, 1.1f, 0f);
     public Vector3 ExitOffset = new Vector3(1.8f, 0f, 0f);
     public Transform Seat;
 
     CharacterController driver;
     Rigidbody rb;
+    AudioSource hornSource;
+    bool parked;
+    bool stoppedByTraffic;
+    float nextHornTime;
 
     public bool HasDriver {
       get { return driver != null; }
+    }
+
+    public bool IsStoppedForTraffic {
+      get { return parked || stoppedByTraffic; }
     }
 
     void Awake()
@@ -43,6 +54,16 @@ public class DrivableCar : MonoBehaviour
         seatObject.transform.localRotation = Quaternion.identity;
         Seat = seatObject.transform;
       }
+
+      hornSource = GetComponent<AudioSource>();
+      if (hornSource == null) {
+        hornSource = gameObject.AddComponent<AudioSource>();
+      }
+
+      hornSource.playOnAwake = false;
+      hornSource.spatialBlend = 1f;
+      hornSource.volume = 0.35f;
+      hornSource.clip = CreateHornClip();
     }
 
     void FixedUpdate()
@@ -50,7 +71,15 @@ public class DrivableCar : MonoBehaviour
       rb.angularVelocity = Vector3.zero;
 
       if (driver != null) {
+        parked = false;
+        stoppedByTraffic = false;
         DriveWithInput(driver.GetMoveInput());
+        return;
+      }
+
+      if (parked) {
+        stoppedByTraffic = false;
+        StopNow();
         return;
       }
 
@@ -69,6 +98,7 @@ public class DrivableCar : MonoBehaviour
       if (!CanEnter(character)) { return; }
 
       StopNow();
+      parked = false;
       driver = character;
       driver.EnterCar(this);
     }
@@ -79,6 +109,7 @@ public class DrivableCar : MonoBehaviour
 
       driver = null;
       StopNow();
+      parked = ParkAfterDriverExit;
     }
 
     public Vector3 GetExitPosition()
@@ -114,11 +145,18 @@ public class DrivableCar : MonoBehaviour
 
     void DriveAutonomously()
     {
-      if (ShouldStopForRedLight()) {
+      bool blockedByCar = ShouldStopForCarAhead();
+      if (ShouldStopForRedLight() || blockedByCar) {
+        stoppedByTraffic = true;
         StopNow();
+
+        if (blockedByCar) {
+          Honk();
+        }
         return;
       }
 
+      stoppedByTraffic = false;
       rb.MovePosition(rb.position + transform.forward * AutoDriveSpeed * Time.fixedDeltaTime);
     }
 
@@ -135,5 +173,57 @@ public class DrivableCar : MonoBehaviour
       }
 
       return false;
+    }
+
+    bool ShouldStopForCarAhead()
+    {
+      Ray ray = new Ray(transform.position + Vector3.up * 0.8f, transform.forward);
+      RaycastHit[] hits = Physics.SphereCastAll(ray, 0.9f, CarLookAhead, ~0, QueryTriggerInteraction.Collide);
+
+      foreach (RaycastHit hit in hits) {
+        DrivableCar otherCar = hit.collider.GetComponentInParent<DrivableCar>();
+        if (otherCar == null || otherCar == this) { continue; }
+        if (!IsInFront(otherCar.transform.position)) { continue; }
+
+        return otherCar.IsStoppedForTraffic;
+      }
+
+      return false;
+    }
+
+    bool IsInFront(Vector3 position)
+    {
+      Vector3 toPosition = position - transform.position;
+      toPosition.y = 0f;
+      if (toPosition.sqrMagnitude < 0.001f) { return false; }
+
+      return Vector3.Dot(transform.forward, toPosition.normalized) > 0.35f;
+    }
+
+    void Honk()
+    {
+      if (Time.time < nextHornTime || hornSource == null || hornSource.clip == null) { return; }
+
+      hornSource.Play();
+      nextHornTime = Time.time + HornInterval;
+    }
+
+    AudioClip CreateHornClip()
+    {
+      const int sampleRate = 22050;
+      const float duration = 0.22f;
+      int sampleCount = Mathf.CeilToInt(sampleRate * duration);
+      float[] samples = new float[sampleCount];
+
+      for (int i = 0; i < sampleCount; i++) {
+        float time = i / (float)sampleRate;
+        float envelope = Mathf.Sin(Mathf.Clamp01(time / duration) * Mathf.PI);
+        float tone = Mathf.Sin(2f * Mathf.PI * 440f * time) + 0.45f * Mathf.Sin(2f * Mathf.PI * 880f * time);
+        samples[i] = tone * envelope * 0.35f;
+      }
+
+      AudioClip clip = AudioClip.Create("CarHorn", sampleCount, 1, sampleRate, false);
+      clip.SetData(samples, 0);
+      return clip;
     }
 }

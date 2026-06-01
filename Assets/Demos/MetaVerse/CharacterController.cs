@@ -64,12 +64,12 @@ public class CharacterController : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
-        rb.angularVelocity = Vector3.zero;
-
         if (isDriving) {
           Anim.SetFloat("Walk", 0f);
           return;
         }
+
+        rb.angularVelocity = Vector3.zero;
 
         Vector2 vec = PlayerAction.ReadValue<Vector2>();
         Vector3 movement = new Vector3(vec.x * StrafeSpeed, 0f, vec.y * WalkSpeed);
