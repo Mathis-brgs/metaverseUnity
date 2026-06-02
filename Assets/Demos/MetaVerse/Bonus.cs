@@ -37,6 +37,11 @@ public class Bonus : MonoBehaviour
 
       if (cScore != null) {
         cScore.AddScore(Points);
+        CharacterController controller = cScore.GetComponentInParent<CharacterController>();
+        if (controller == null) {
+          controller = cScore.GetComponentInChildren<CharacterController>();
+        }
+        ScorePanelHUD.ShowPickupMessage(controller);
       }
 
       Destroy(gameObject);
