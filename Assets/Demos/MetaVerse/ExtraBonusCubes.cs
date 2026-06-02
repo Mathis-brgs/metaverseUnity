@@ -1,6 +1,5 @@
 using UnityEngine;
 
-[ExecuteAlways]
 public class ExtraBonusCubes : MonoBehaviour
 {
     public int BonusCount = 8;
@@ -9,6 +8,7 @@ public class ExtraBonusCubes : MonoBehaviour
     public Vector2 AreaSize = new Vector2(42f, 42f);
     public float MinimumDistanceBetweenCubes = 4f;
     public float CubeHeight = 1.164f;
+    public int ExtraBonusPoints = 1;
     public LayerMask CollisionLayers = 1 << 6;
 
     static Material cubeMaterial;
@@ -25,12 +25,7 @@ public class ExtraBonusCubes : MonoBehaviour
 
     void Start()
     {
-      EnsureCubes();
-    }
-
-    void OnEnable()
-    {
-      EnsureCubes();
+      RebuildCubes();
     }
 
     void OnValidate()
@@ -39,10 +34,9 @@ public class ExtraBonusCubes : MonoBehaviour
       AreaSize = new Vector2(Mathf.Max(0f, AreaSize.x), Mathf.Max(0f, AreaSize.y));
       MinimumDistanceBetweenCubes = Mathf.Max(0f, MinimumDistanceBetweenCubes);
       CubeHeight = Mathf.Max(0f, CubeHeight);
+      ExtraBonusPoints = Mathf.Max(1, ExtraBonusPoints);
 
-      if (isActiveAndEnabled) {
-        RebuildCubes();
-      }
+      // La generation se fait au Play pour eviter de modifier la scene pendant le chargement Unity.
     }
 
     void RebuildCubes()
@@ -64,7 +58,7 @@ public class ExtraBonusCubes : MonoBehaviour
       Bonus referenceBonus = FindReferenceBonus();
       if (referenceBonus == null) { return; }
 
-      int points = referenceBonus.Points;
+      int points = ExtraBonusPoints;
       LayerMask collisionLayers = referenceBonus.CollisionLayers;
       int bonusLayer = referenceBonus.gameObject.layer;
 
@@ -83,9 +77,8 @@ public class ExtraBonusCubes : MonoBehaviour
         placedCount++;
       }
 
-      for (int i = 0; i < BonusCount; i++) {
-        Vector3 position = i < placedCount ? positions[i] : GetRandomPosition(referenceBonus.transform.position.y);
-        CreateBonusCube(position, points, collisionLayers, bonusLayer, i + 1);
+      for (int i = 0; i < placedCount; i++) {
+        CreateBonusCube(positions[i], points, collisionLayers, bonusLayer, i + 1);
       }
     }
 
@@ -127,7 +120,7 @@ public class ExtraBonusCubes : MonoBehaviour
       Transform existingRoot = transform.Find(GeneratedRootName);
       if (existingRoot == null) { return; }
 
-      DestroyImmediate(existingRoot.gameObject);
+      Destroy(existingRoot.gameObject);
     }
 
     void CreateBonusCube(Vector3 position, int points, LayerMask collisionLayers, int bonusLayer, int index)
@@ -162,7 +155,7 @@ public class ExtraBonusCubes : MonoBehaviour
 
       Collider cubeCollider = cube.GetComponent<Collider>();
       if (cubeCollider != null) {
-        DestroyImmediate(cubeCollider);
+        Destroy(cubeCollider);
       }
 
       MeshRenderer renderer = cube.GetComponent<MeshRenderer>();

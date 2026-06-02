@@ -4,6 +4,7 @@ public class Bonus : MonoBehaviour
 {
     public LayerMask CollisionLayers;
     public int Points = 1;
+    bool isCollected;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -37,6 +38,7 @@ public class Bonus : MonoBehaviour
     }
 
     void OnTriggerEnter(Collider other) {
+      if (isCollected) { return; }
       if (!ShouldHandleObject(other)) { return; }
 
       CharacterScore cScore = other.GetComponentInParent<CharacterScore>();
@@ -51,6 +53,8 @@ public class Bonus : MonoBehaviour
       }
 
       if (cScore != null) {
+        isCollected = true;
+        enabled = false;
         cScore.AddScore(Points);
         CharacterController controller = cScore.GetComponentInParent<CharacterController>();
         if (controller == null) {
@@ -58,6 +62,8 @@ public class Bonus : MonoBehaviour
         }
         ScorePanelHUD.ShowPickupMessage(controller);
       }
+
+      if (!isCollected) { return; }
 
       Destroy(gameObject);
     }
