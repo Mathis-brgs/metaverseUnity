@@ -93,6 +93,8 @@ public class DrivableCar : MonoBehaviour
       hornSource.spatialBlend = 1f;
       hornSource.volume = 0.35f;
       hornSource.clip = CreateHornClip();
+
+      IgnoreBonusCollisions();
     }
 
     void FixedUpdate()
@@ -252,6 +254,7 @@ public class DrivableCar : MonoBehaviour
 
       foreach (RaycastHit hit in hits) {
         if (IsOwnCollider(hit.collider)) { continue; }
+        if (hit.collider.GetComponentInParent<Bonus>() != null) { continue; }
         if (!IsInFront(hit.collider.bounds.center)) { continue; }
         if (IsTooLowToBlockCar(hit.collider)) { continue; }
 
@@ -264,6 +267,21 @@ public class DrivableCar : MonoBehaviour
       }
 
       return false;
+    }
+
+    void IgnoreBonusCollisions()
+    {
+      Collider[] carColliders = GetComponentsInChildren<Collider>();
+      Bonus[] bonuses = FindObjectsByType<Bonus>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+
+      foreach (Collider carCollider in carColliders) {
+        foreach (Bonus bonus in bonuses) {
+          Collider[] bonusColliders = bonus.GetComponentsInChildren<Collider>();
+          foreach (Collider bonusCollider in bonusColliders) {
+            Physics.IgnoreCollision(carCollider, bonusCollider, true);
+          }
+        }
+      }
     }
 
     bool IsTooLowToBlockCar(Collider hitCollider)
