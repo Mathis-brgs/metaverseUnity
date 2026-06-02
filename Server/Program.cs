@@ -50,7 +50,8 @@ class GameServer
             {
                 clients.Remove(client);
                 Console.WriteLine($"[-] {client.Id} déconnecté  ({clients.Count} joueurs)");
-                // TODO J3 : broadcaster PLAYER_LEFT + nettoyer WorldState (tâche D)
+                Broadcast($"{{\"type\":\"PLAYER_LEFT\",\"id\":\"{client.Id}\"}}", exclude: null);
+                // TODO J3 : nettoyer WorldState (tâche D)
                 continue;
             }
 
