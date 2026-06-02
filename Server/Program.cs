@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Text.Json;
 
 var server = new GameServer(25000);
 server.Start();
@@ -25,22 +26,83 @@ class GameServer
 
         while (true)
         {
-            // Accepter un nouveau client si quelqu'un frappe à la porte
-            if (listener.Pending())
+            AcceptNewClients();
+            ReadClientMessages();
+        }
+    }
+
+    void AcceptNewClients()
+    {
+        if (listener == null || !listener.Pending()) return;
+
+        TcpClient tcp = listener.AcceptTcpClient();
+        var client = new ConnectedClient(tcp, $"p{nextId++}");
+        clients.Add(client);
+        Console.WriteLine($"[+] {client.Id} connecté  ({clients.Count} joueurs)");
+    }
+
+    void ReadClientMessages()
+    {
+        foreach (var client in clients.ToList())
+        {
+            // Vérifier si le client est toujours connecté
+            if (!client.IsConnected)
             {
-                TcpClient tcp = listener.AcceptTcpClient();
-                var client = new ConnectedClient(tcp, $"p{nextId++}");
-                clients.Add(client);
-                Console.WriteLine($"[+] Joueur connecté : {client.Id}  ({clients.Count} joueurs)");
+                clients.Remove(client);
+                Console.WriteLine($"[-] {client.Id} déconnecté  ({clients.Count} joueurs)");
+                // TODO J3 : broadcaster PLAYER_LEFT + nettoyer WorldState (tâche D)
+                continue;
             }
 
-            // Lire les messages de chaque client connecté
-            foreach (var client in clients.ToList())
+            string? message = client.ReadLine();
+            if (message != null)
+                HandleMessage(client, message);
+        }
+    }
+
+    // Reçoit un message JSON et le route selon son type
+    void HandleMessage(ConnectedClient sender, string json)
+    {
+        Console.WriteLine($"[{sender.Id}] {json}");
+
+        try
+        {
+            var doc = JsonDocument.Parse(json);
+            string type = doc.RootElement.GetProperty("type").GetString() ?? "";
+
+            switch (type)
             {
-                string? message = client.ReadLine();
-                if (message != null)
-                    Console.WriteLine($"[{client.Id}] {message}");
+                case "JOIN":
+                    // TODO J3 : créer PlayerState, envoyer INIT_STATE au nouveau + PLAYER_JOIN aux autres
+                    Broadcast($"{{\"type\":\"PLAYER_JOIN\",\"id\":\"{sender.Id}\"}}", exclude: null);
+                    break;
+
+                case "MOVE":
+                    // TODO J3 : mettre à jour WorldState (position du joueur)
+                    break;
+
+                case "TAKE":
+                    // TODO J3 : appeler WorldState.TryCollectBonus() (tâche D)
+                    break;
+
+                default:
+                    Console.WriteLine($"  ⚠ type inconnu : {type}");
+                    break;
             }
+        }
+        catch (JsonException)
+        {
+            Console.WriteLine($"  ⚠ JSON invalide reçu de {sender.Id}");
+        }
+    }
+
+    // Envoie un message à tous les clients (sauf celui exclu si précisé)
+    void Broadcast(string message, ConnectedClient? exclude)
+    {
+        foreach (var client in clients.ToList())
+        {
+            if (client == exclude) continue;
+            client.Send(message);
         }
     }
 
@@ -59,19 +121,28 @@ class ConnectedClient
     public string Id { get; }
     TcpClient tcp;
     StreamReader reader;
+    StreamWriter writer;
 
     public ConnectedClient(TcpClient tcp, string id)
     {
         this.tcp = tcp;
         this.Id = id;
-        // StreamReader lit ligne par ligne — résout le problème de messages collés
         reader = new StreamReader(tcp.GetStream());
+        writer = new StreamWriter(tcp.GetStream()) { AutoFlush = true };
     }
 
-    // Retourne un message complet (jusqu'au \n) ou null si rien à lire
+    public bool IsConnected => tcp.Connected;
+
     public string? ReadLine()
     {
         if (tcp.Available == 0) return null;
         return reader.ReadLine();
+    }
+
+    // Envoie un message au client — le \n est le délimiteur de message
+    public void Send(string message)
+    {
+        try { writer.WriteLine(message); }
+        catch { /* client déconnecté, sera nettoyé au prochain tour */ }
     }
 }
