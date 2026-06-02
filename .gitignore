@@ -1,11 +1,16 @@
-# Unity generated (régénérés automatiquement, ne jamais committer)
-[Ll]ibrary/
-[Tt]emp/
-[Oo]bj/
-[Bb]uild/
-[Bb]uilds/
-[Ll]ogs/
-[Uu]ser[Ss]ettings/
+# Fichiers générés par Unity
+/Library/
+/obj/
+*.csproj
+*.sln
+/Temp/
+/.vs/
+/Log/
+/Logs/
+/Build/
+*.0.2.zip
+*.zip
+/UserSettings/
 
 # Fichiers projet C# (régénérés par Unity à l'ouverture)
 *.csproj
