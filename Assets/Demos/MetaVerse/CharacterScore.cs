@@ -8,7 +8,7 @@ public class CharacterScore : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        TxtScore.text = Score.ToString();
+        UpdateScoreText();
     }
 
     // Update is called once per frame
@@ -19,6 +19,12 @@ public class CharacterScore : MonoBehaviour
 
     public void AddScore(int points) {
       Score += points;
+      UpdateScoreText();
+    }
+
+    void UpdateScoreText() {
+      if (TxtScore == null) { return; }
+
       TxtScore.text = Score.ToString();
     }
 }

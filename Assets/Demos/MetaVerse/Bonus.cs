@@ -24,7 +24,17 @@ public class Bonus : MonoBehaviour
     void OnTriggerEnter(Collider other) {
       if (!ShouldHandleObject(other)) { return; }
 
-      CharacterScore cScore = other.gameObject.GetComponentInChildren<CharacterScore>();
+      CharacterScore cScore = other.GetComponentInParent<CharacterScore>();
+      if (cScore == null) {
+        cScore = other.GetComponentInChildren<CharacterScore>();
+      }
+      if (cScore == null) {
+        CharacterController controller = other.GetComponentInParent<CharacterController>();
+        if (controller != null) {
+          cScore = controller.GetComponentInChildren<CharacterScore>();
+        }
+      }
+
       if (cScore != null) {
         cScore.AddScore(Points);
       }
