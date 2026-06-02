@@ -13,6 +13,7 @@ using UnityEngine.Events;
 public class NetworkManager : MonoBehaviour
 {
     [Header("Connexion")]
+    public string ServerIP = "127.0.0.1";
     public string PlayerName = "Joueur";
     public bool ConnectOnStart = true;
 
@@ -82,6 +83,7 @@ public class NetworkManager : MonoBehaviour
         MyPlayerId = "";
         _tcpLineBuffer.Clear();
 
+        _tcp.DestinationIP = ServerIP;
         _tcp.DestinationPort = TcpPort;
         if (!_tcp.Connect(OnTcpChunkReceived))
         {
