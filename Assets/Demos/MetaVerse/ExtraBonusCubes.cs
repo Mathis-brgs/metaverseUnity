@@ -1,13 +1,18 @@
 using UnityEngine;
 
+[ExecuteAlways]
 public class ExtraBonusCubes : MonoBehaviour
 {
     public int BonusCount = 8;
-    public float Radius = 8f;
+    public int RandomSeed = 12345;
+    public Vector2 AreaCenter = new Vector2(250f, 255f);
+    public Vector2 AreaSize = new Vector2(42f, 42f);
+    public float MinimumDistanceBetweenCubes = 4f;
     public float CubeHeight = 1.164f;
     public LayerMask CollisionLayers = 1 << 6;
 
     static Material cubeMaterial;
+    const string GeneratedRootName = "Generated Bonus Cubes";
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void CreateExtraBonuses()
@@ -20,25 +25,117 @@ public class ExtraBonusCubes : MonoBehaviour
 
     void Start()
     {
-      Bonus referenceBonus = FindFirstObjectByType<Bonus>();
+      EnsureCubes();
+    }
+
+    void OnEnable()
+    {
+      EnsureCubes();
+    }
+
+    void OnValidate()
+    {
+      BonusCount = Mathf.Max(0, BonusCount);
+      AreaSize = new Vector2(Mathf.Max(0f, AreaSize.x), Mathf.Max(0f, AreaSize.y));
+      MinimumDistanceBetweenCubes = Mathf.Max(0f, MinimumDistanceBetweenCubes);
+      CubeHeight = Mathf.Max(0f, CubeHeight);
+
+      if (isActiveAndEnabled) {
+        RebuildCubes();
+      }
+    }
+
+    void RebuildCubes()
+    {
+      ClearGeneratedCubes();
+      BuildCubes();
+    }
+
+    void EnsureCubes()
+    {
+      Transform existingRoot = transform.Find(GeneratedRootName);
+      if (existingRoot != null && existingRoot.childCount > 0) { return; }
+
+      BuildCubes();
+    }
+
+    void BuildCubes()
+    {
+      Bonus referenceBonus = FindReferenceBonus();
       if (referenceBonus == null) { return; }
 
-      Vector3 center = referenceBonus.transform.position;
       int points = referenceBonus.Points;
       LayerMask collisionLayers = referenceBonus.CollisionLayers;
       int bonusLayer = referenceBonus.gameObject.layer;
 
-      for (int i = 0; i < BonusCount; i++) {
-        float angle = i * Mathf.PI * 2f / BonusCount;
-        Vector3 offset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * Radius;
-        CreateBonusCube(center + offset, points, collisionLayers, bonusLayer, i + 1);
+      Random.InitState(RandomSeed);
+      Vector3[] positions = new Vector3[BonusCount];
+      int placedCount = 0;
+      int attempts = 0;
+      int maxAttempts = Mathf.Max(40, BonusCount * 25);
+
+      while (placedCount < BonusCount && attempts < maxAttempts) {
+        attempts++;
+        Vector3 position = GetRandomPosition(referenceBonus.transform.position.y);
+        if (!CanPlaceAt(position, positions, placedCount)) { continue; }
+
+        positions[placedCount] = position;
+        placedCount++;
       }
+
+      for (int i = 0; i < BonusCount; i++) {
+        Vector3 position = i < placedCount ? positions[i] : GetRandomPosition(referenceBonus.transform.position.y);
+        CreateBonusCube(position, points, collisionLayers, bonusLayer, i + 1);
+      }
+    }
+
+    Vector3 GetRandomPosition(float height)
+    {
+      float x = AreaCenter.x + Random.Range(-AreaSize.x * 0.5f, AreaSize.x * 0.5f);
+      float z = AreaCenter.y + Random.Range(-AreaSize.y * 0.5f, AreaSize.y * 0.5f);
+      return new Vector3(x, height, z);
+    }
+
+    bool CanPlaceAt(Vector3 position, Vector3[] existingPositions, int placedCount)
+    {
+      float minDistanceSqr = MinimumDistanceBetweenCubes * MinimumDistanceBetweenCubes;
+      for (int i = 0; i < placedCount; i++) {
+        Vector3 diff = position - existingPositions[i];
+        diff.y = 0f;
+        if (diff.sqrMagnitude < minDistanceSqr) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    Bonus FindReferenceBonus()
+    {
+      Bonus[] bonuses = FindObjectsByType<Bonus>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+      foreach (Bonus bonus in bonuses) {
+        if (!bonus.transform.IsChildOf(transform)) {
+          return bonus;
+        }
+      }
+
+      return null;
+    }
+
+    void ClearGeneratedCubes()
+    {
+      Transform existingRoot = transform.Find(GeneratedRootName);
+      if (existingRoot == null) { return; }
+
+      DestroyImmediate(existingRoot.gameObject);
     }
 
     void CreateBonusCube(Vector3 position, int points, LayerMask collisionLayers, int bonusLayer, int index)
     {
+      Transform generatedRoot = GetGeneratedRoot();
       GameObject bonusObject = new GameObject("Bonus Extra " + index);
       bonusObject.layer = bonusLayer;
+      bonusObject.transform.SetParent(generatedRoot, false);
       bonusObject.transform.position = position;
 
       BoxCollider trigger = bonusObject.AddComponent<BoxCollider>();
@@ -65,11 +162,24 @@ public class ExtraBonusCubes : MonoBehaviour
 
       Collider cubeCollider = cube.GetComponent<Collider>();
       if (cubeCollider != null) {
-        Destroy(cubeCollider);
+        DestroyImmediate(cubeCollider);
       }
 
       MeshRenderer renderer = cube.GetComponent<MeshRenderer>();
       renderer.sharedMaterial = GetCubeMaterial();
+    }
+
+    Transform GetGeneratedRoot()
+    {
+      Transform generatedRoot = transform.Find(GeneratedRootName);
+      if (generatedRoot != null) { return generatedRoot; }
+
+      GameObject root = new GameObject(GeneratedRootName);
+      root.transform.SetParent(transform, false);
+      root.transform.localPosition = Vector3.zero;
+      root.transform.localRotation = Quaternion.identity;
+      root.transform.localScale = Vector3.one;
+      return root.transform;
     }
 
     static Material GetCubeMaterial()
