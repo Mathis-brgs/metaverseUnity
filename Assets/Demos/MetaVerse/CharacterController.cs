@@ -13,6 +13,7 @@ public class CharacterController : MonoBehaviour
     public float WalkSpeed = 3;
     public float StrafeSpeed = 3;
     public float TurnSpeed = 720;
+    public bool UseCameraRelativeMovement = true;
     public LayerMask CharacterLayers = 1 << 6;
     public float AttackRange = 1.6f;
     public float AttackCooldown = 0.8f;
@@ -82,7 +83,7 @@ public class CharacterController : MonoBehaviour
         rb.angularVelocity = Vector3.zero;
 
         Vector2 vec = PlayerAction.ReadValue<Vector2>();
-        Vector3 movement = new Vector3(vec.x * StrafeSpeed, 0f, vec.y * WalkSpeed);
+        Vector3 movement = GetMovementDirection(vec);
         float moveAmount = Mathf.Clamp01(movement.magnitude / Mathf.Max(WalkSpeed, StrafeSpeed));
 
         Anim.SetFloat("Walk", moveAmount);
@@ -95,6 +96,23 @@ public class CharacterController : MonoBehaviour
         }
 
         rb.MovePosition(rb.position + movement * CurrentSpeedMultiplier * Time.fixedDeltaTime);
+    }
+
+    Vector3 GetMovementDirection(Vector2 input)
+    {
+      if (!UseCameraRelativeMovement || Camera.main == null) {
+        return new Vector3(input.x * StrafeSpeed, 0f, input.y * WalkSpeed);
+      }
+
+      Transform cameraTransform = Camera.main.transform;
+      Vector3 cameraForward = Vector3.ProjectOnPlane(cameraTransform.forward, Vector3.up).normalized;
+      Vector3 cameraRight = Vector3.ProjectOnPlane(cameraTransform.right, Vector3.up).normalized;
+
+      if (cameraForward.sqrMagnitude < 0.001f || cameraRight.sqrMagnitude < 0.001f) {
+        return new Vector3(input.x * StrafeSpeed, 0f, input.y * WalkSpeed);
+      }
+
+      return cameraRight * input.x * StrafeSpeed + cameraForward * input.y * WalkSpeed;
     }
 
     void Update()
