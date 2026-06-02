@@ -1,35 +1,55 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
+using System.Diagnostics;
 
-var server = new GameServer(25000);
+var server = new GameServer(25000, 25001);
 server.Start();
 
 class GameServer
 {
-    readonly int port;
+    readonly int tcpPort;
+    readonly int udpPort;
     TcpListener? listener;
+    UdpClient udpSocket;
     List<ConnectedClient> clients = new();
+    // Associe un playerId à son endpoint UDP pour pouvoir lui répondre
+    Dictionary<string, IPEndPoint> udpEndpoints = new();
     int nextId = 1;
+    Stopwatch statTimer = Stopwatch.StartNew();
 
-    public GameServer(int port)
+    public GameServer(int tcpPort, int udpPort)
     {
-        this.port = port;
+        this.tcpPort = tcpPort;
+        this.udpPort = udpPort;
+        udpSocket = new UdpClient(udpPort);
     }
 
     public void Start()
     {
-        listener = new TcpListener(IPAddress.Any, port);
+        listener = new TcpListener(IPAddress.Any, tcpPort);
         listener.Start();
-        Console.WriteLine($"Serveur démarré sur le port {port}");
+        Console.WriteLine($"Serveur démarré — TCP:{tcpPort}  UDP:{udpPort}");
         Console.WriteLine($"IP locale : {GetLocalIP()}");
+
+        // UDP tourne dans un thread séparé pour ne pas bloquer la boucle TCP
+        Task.Run(ListenUDP);
 
         while (true)
         {
             AcceptNewClients();
             ReadClientMessages();
+
+            // Broadcaster l'état des positions 20x/sec via UDP
+            if (statTimer.ElapsedMilliseconds >= 50)
+            {
+                BroadcastStateUDP();
+                statTimer.Restart();
+            }
         }
     }
+
+    // --- TCP ---
 
     void AcceptNewClients()
     {
@@ -45,10 +65,10 @@ class GameServer
     {
         foreach (var client in clients.ToList())
         {
-            // Vérifier si le client est toujours connecté
             if (!client.IsConnected)
             {
                 clients.Remove(client);
+                udpEndpoints.Remove(client.Id);
                 Console.WriteLine($"[-] {client.Id} déconnecté  ({clients.Count} joueurs)");
                 Broadcast($"{{\"type\":\"PLAYER_LEFT\",\"id\":\"{client.Id}\"}}", exclude: null);
                 // TODO J3 : nettoyer WorldState (tâche D)
@@ -61,10 +81,9 @@ class GameServer
         }
     }
 
-    // Reçoit un message JSON et le route selon son type
     void HandleMessage(ConnectedClient sender, string json)
     {
-        Console.WriteLine($"[{sender.Id}] {json}");
+        Console.WriteLine($"[TCP][{sender.Id}] {json}");
 
         try
         {
@@ -74,12 +93,8 @@ class GameServer
             switch (type)
             {
                 case "JOIN":
-                    // TODO J3 : créer PlayerState, envoyer INIT_STATE au nouveau + PLAYER_JOIN aux autres
+                    // TODO J3 : créer PlayerState, envoyer INIT_STATE au nouveau
                     Broadcast($"{{\"type\":\"PLAYER_JOIN\",\"id\":\"{sender.Id}\"}}", exclude: null);
-                    break;
-
-                case "MOVE":
-                    // TODO J3 : mettre à jour WorldState (position du joueur)
                     break;
 
                 case "TAKE":
@@ -93,11 +108,10 @@ class GameServer
         }
         catch (JsonException)
         {
-            Console.WriteLine($"  ⚠ JSON invalide reçu de {sender.Id}");
+            Console.WriteLine($"  ⚠ JSON invalide de {sender.Id}");
         }
     }
 
-    // Envoie un message à tous les clients (sauf celui exclu si précisé)
     void Broadcast(string message, ConnectedClient? exclude)
     {
         foreach (var client in clients.ToList())
@@ -105,6 +119,48 @@ class GameServer
             if (client == exclude) continue;
             client.Send(message);
         }
+    }
+
+    // --- UDP ---
+
+    void ListenUDP()
+    {
+        Console.WriteLine($"UDP en écoute sur le port {udpPort}");
+        while (true)
+        {
+            IPEndPoint remote = new IPEndPoint(IPAddress.Any, 0);
+            byte[] data = udpSocket.Receive(ref remote);
+            string json = System.Text.Encoding.UTF8.GetString(data);
+
+            try
+            {
+                var doc = JsonDocument.Parse(json);
+                string type = doc.RootElement.GetProperty("type").GetString() ?? "";
+
+                if (type == "MOVE")
+                {
+                    string id = doc.RootElement.GetProperty("id").GetString() ?? "";
+                    // Mémoriser l'endpoint UDP de ce joueur pour lui envoyer STATE
+                    udpEndpoints[id] = remote;
+                    Console.WriteLine($"[UDP][{id}] MOVE reçu");
+                    // TODO J3 : mettre à jour WorldState.UpdatePlayerPosition()
+                }
+            }
+            catch (JsonException) { }
+        }
+    }
+
+    // Envoie l'état de toutes les positions à tous les clients connus via UDP
+    void BroadcastStateUDP()
+    {
+        if (udpEndpoints.Count == 0) return;
+
+        // TODO J3 : remplacer par les vraies positions du WorldState
+        var state = $"{{\"type\":\"STATE\",\"players\":[]}}";
+        byte[] data = System.Text.Encoding.UTF8.GetBytes(state);
+
+        foreach (var endpoint in udpEndpoints.Values)
+            udpSocket.Send(data, data.Length, endpoint);
     }
 
     string GetLocalIP()
@@ -140,10 +196,9 @@ class ConnectedClient
         return reader.ReadLine();
     }
 
-    // Envoie un message au client — le \n est le délimiteur de message
     public void Send(string message)
     {
         try { writer.WriteLine(message); }
-        catch { /* client déconnecté, sera nettoyé au prochain tour */ }
+        catch { }
     }
 }
