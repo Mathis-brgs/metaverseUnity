@@ -32,3 +32,6 @@ Thumbs.db
 # Build dotnet (Server)
 Server/bin/
 Server/obj/
+
+# Fichiers de récupération Unity
+Assets/_Recovery/
