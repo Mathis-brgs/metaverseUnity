@@ -158,7 +158,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Player: 0
   WalkSpeed: 3
-  RotateSpeed: 250
+  TurnSpeed: 140
+  TankControls: 1
 --- !u!54 &8781497682776968274
 Rigidbody:
   m_ObjectHideFlags: 0

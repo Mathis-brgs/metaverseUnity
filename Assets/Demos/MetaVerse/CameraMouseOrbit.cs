@@ -1,91 +1,50 @@
 using Unity.Cinemachine;
+using Unity.Cinemachine.TargetTracking;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
+/// <summary>
+/// Caméra troisième personne fixée derrière la cible Cinemachine.
+/// Suit la rotation du personnage (clavier uniquement — aucun contrôle souris).
+/// </summary>
 [RequireComponent(typeof(CinemachineFollow))]
 public class CameraMouseOrbit : MonoBehaviour
 {
-    public float MouseSensitivity = 0.2f;
-    public float RotationSmoothTime = 0.08f;
-    public float MinPitch = 15f;
-    public float MaxPitch = 75f;
-    public bool HideCursorWhileDragging = true;
+    [Header("Suivi")]
+    [Tooltip("Plus la valeur est haute, plus la caméra suit le yaw du joueur lentement (ex. 0,2–0,4).")]
+    public float CameraYawLag = 0.25f;
 
     CinemachineFollow follow;
-    float yaw;
-    float pitch;
-    float targetYaw;
-    float targetPitch;
-    float yawVelocity;
-    float pitchVelocity;
-    float distance;
 
     void Awake()
     {
         follow = GetComponent<CinemachineFollow>();
-        ReadCurrentOffset();
-    }
+        if (follow == null)
+            return;
 
-    void Update()
-    {
-        if (Mouse.current == null || follow == null) { return; }
+        var settings = follow.TrackerSettings;
+        settings.BindingMode = BindingMode.LockToTargetWithWorldUp;
+        settings.PositionDamping = Vector3.zero;
 
-        bool dragging = Mouse.current.leftButton.isPressed;
-        SetCursorDragging(dragging);
+        // Cinemachine : amortissement élevé = rotation plus lente (moins de secousse).
+        float yawDamp = CameraYawLag <= 0f
+            ? 0f
+            : Mathf.Clamp(CameraYawLag * 14f, 1.5f, 6f);
+        settings.RotationDamping = new Vector3(0f, yawDamp, 0f);
+        settings.QuaternionDamping = yawDamp;
 
-        if (!dragging) { return; }
+        follow.TrackerSettings = settings;
 
-        Vector2 delta = Mouse.current.delta.ReadValue();
-        targetYaw += delta.x * MouseSensitivity;
-        targetPitch = Mathf.Clamp(targetPitch - delta.y * MouseSensitivity, MinPitch, MaxPitch);
-    }
-
-    void LateUpdate()
-    {
-        if (follow == null) { return; }
-
-        yaw = Mathf.SmoothDampAngle(yaw, targetYaw, ref yawVelocity, RotationSmoothTime);
-        pitch = Mathf.SmoothDamp(pitch, targetPitch, ref pitchVelocity, RotationSmoothTime);
-        ApplyOffset();
+        EnsureCursorUnlocked();
     }
 
     void OnDisable()
     {
-        SetCursorDragging(false);
+        EnsureCursorUnlocked();
     }
 
-    void ReadCurrentOffset()
+    static void EnsureCursorUnlocked()
     {
-        Vector3 offset = follow.FollowOffset;
-        distance = Mathf.Max(0.1f, offset.magnitude);
-
-        Vector2 flatOffset = new Vector2(offset.x, offset.z);
-        float horizontalDistance = Mathf.Max(0.01f, flatOffset.magnitude);
-
-        yaw = Mathf.Atan2(offset.x, -offset.z) * Mathf.Rad2Deg;
-        pitch = Mathf.Clamp(Mathf.Atan2(offset.y, horizontalDistance) * Mathf.Rad2Deg, MinPitch, MaxPitch);
-        targetYaw = yaw;
-        targetPitch = pitch;
-    }
-
-    void ApplyOffset()
-    {
-        float pitchRad = pitch * Mathf.Deg2Rad;
-        float yawRad = yaw * Mathf.Deg2Rad;
-        float horizontalDistance = Mathf.Cos(pitchRad) * distance;
-
-        follow.FollowOffset = new Vector3(
-            Mathf.Sin(yawRad) * horizontalDistance,
-            Mathf.Sin(pitchRad) * distance,
-            -Mathf.Cos(yawRad) * horizontalDistance
-        );
-    }
-
-    void SetCursorDragging(bool dragging)
-    {
-        if (!HideCursorWhileDragging) { return; }
-
-        Cursor.lockState = dragging ? CursorLockMode.Locked : CursorLockMode.None;
-        Cursor.visible = !dragging;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 }

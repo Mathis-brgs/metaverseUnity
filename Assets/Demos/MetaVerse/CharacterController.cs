@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 using System.Collections;
 
 public enum CharacterPlayer {
@@ -12,7 +13,11 @@ public class CharacterController : MonoBehaviour
     public CharacterPlayer Player = CharacterPlayer.Player1;
     public float WalkSpeed = 3;
     public float StrafeSpeed = 3;
-    public float TurnSpeed = 720;
+    [FormerlySerializedAs("RotateSpeed")]
+    public float TurnSpeed = 140f;
+    [Tooltip("A/D = tourner sur place, W/S = avancer/reculer (recommandé sans souris).")]
+    public bool TankControls = true;
+    [Tooltip("Utilisé seulement si Tank Controls est désactivé.")]
     public bool UseCameraRelativeMovement = true;
     public LayerMask CharacterLayers = 1 << 6;
     public float AttackRange = 1.6f;
@@ -83,7 +88,33 @@ public class CharacterController : MonoBehaviour
         rb.angularVelocity = Vector3.zero;
 
         Vector2 vec = PlayerAction.ReadValue<Vector2>();
-        Vector3 movement = GetMovementDirection(vec);
+
+        if (TankControls) {
+          ApplyTankMovement(vec);
+        } else {
+          ApplyCameraRelativeMovement(vec);
+        }
+    }
+
+    void ApplyTankMovement(Vector2 input)
+    {
+        if (Mathf.Abs(input.x) > 0.01f) {
+          float yaw = input.x * TurnSpeed * Time.fixedDeltaTime;
+          rb.MoveRotation(rb.rotation * Quaternion.Euler(0f, yaw, 0f));
+        }
+
+        Vector3 move = transform.forward * (input.y * WalkSpeed * CurrentSpeedMultiplier * Time.fixedDeltaTime);
+        if (move.sqrMagnitude > 0.0001f)
+          rb.MovePosition(rb.position + move);
+
+        float moveAmount = Mathf.Clamp01(Mathf.Abs(input.y));
+        Anim.SetFloat("Walk", moveAmount);
+        Anim.speed = IsSlowed ? 0.55f : 1f;
+    }
+
+    void ApplyCameraRelativeMovement(Vector2 input)
+    {
+        Vector3 movement = GetMovementDirection(input);
         float moveAmount = Mathf.Clamp01(movement.magnitude / Mathf.Max(WalkSpeed, StrafeSpeed));
 
         Anim.SetFloat("Walk", moveAmount);
