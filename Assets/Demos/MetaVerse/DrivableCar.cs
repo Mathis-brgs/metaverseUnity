@@ -17,6 +17,8 @@ public class DrivableCar : MonoBehaviour
     public float MinObstacleHeight = 0.55f;
     public LayerMask ObstacleLayers = ~0;
     public float HornInterval = 1.6f;
+    public string EngineSoundFileName = "SFX_Cars.mp3";
+    public float EngineVolume = 0.22f;
     public Vector3 SeatOffset = new Vector3(0f, 1.1f, 0f);
     public Vector3 ExitOffset = new Vector3(1.8f, 0f, 0f);
     public Transform Seat;
@@ -24,6 +26,7 @@ public class DrivableCar : MonoBehaviour
     CharacterController driver;
     Rigidbody rb;
     AudioSource hornSource;
+    AudioSource engineSource;
     Animation sceneAnimation;
     bool parked;
     bool stoppedByTraffic;
@@ -93,6 +96,15 @@ public class DrivableCar : MonoBehaviour
       hornSource.spatialBlend = 1f;
       hornSource.volume = 0.35f;
       hornSource.clip = CreateHornClip();
+
+      engineSource = gameObject.AddComponent<AudioSource>();
+      engineSource.playOnAwake = false;
+      engineSource.loop = true;
+      engineSource.spatialBlend = 1f;
+      engineSource.volume = EngineVolume;
+      StartCoroutine(LoadEngineSound());
+
+      IgnoreBonusCollisions();
     }
 
     void FixedUpdate()
@@ -110,6 +122,7 @@ public class DrivableCar : MonoBehaviour
       if (parked) {
         stoppedByTraffic = false;
         SetSceneAnimationPlaying(false);
+        SetEngineSoundPlaying(false);
         StopNow();
         return;
       }
@@ -118,6 +131,7 @@ public class DrivableCar : MonoBehaviour
         DriveAutonomously();
       } else {
         SetSceneAnimationPlaying(false);
+        SetEngineSoundPlaying(false);
       }
     }
 
@@ -172,7 +186,10 @@ public class DrivableCar : MonoBehaviour
       }
 
       if (input.sqrMagnitude < 0.001f) {
+        SetEngineSoundPlaying(false);
         StopNow();
+      } else {
+        SetEngineSoundPlaying(true);
       }
     }
 
@@ -182,6 +199,7 @@ public class DrivableCar : MonoBehaviour
       if (ShouldStopForRedLight() || blockedByObstacle) {
         stoppedByTraffic = true;
         SetSceneAnimationPlaying(false);
+        SetEngineSoundPlaying(false);
         StopNow();
 
         if (blockedByObstacle) {
@@ -192,6 +210,7 @@ public class DrivableCar : MonoBehaviour
 
       stoppedByTraffic = false;
       SetSceneAnimationPlaying(true);
+      SetEngineSoundPlaying(true);
       if (UseSceneAnimationWhenEmpty && sceneAnimation != null) {
         return;
       }
@@ -220,6 +239,30 @@ public class DrivableCar : MonoBehaviour
     {
       foreach (AnimationState state in sceneAnimation) {
         state.speed = speed;
+      }
+    }
+
+    System.Collections.IEnumerator LoadEngineSound()
+    {
+      AudioClip loadedClip = null;
+      yield return MetaVerseSoundLibrary.LoadClip(EngineSoundFileName, clip => loadedClip = clip);
+
+      if (loadedClip != null && engineSource != null) {
+        engineSource.clip = loadedClip;
+      }
+    }
+
+    void SetEngineSoundPlaying(bool shouldPlay)
+    {
+      if (engineSource == null || engineSource.clip == null) { return; }
+
+      engineSource.volume = EngineVolume;
+      if (shouldPlay) {
+        if (!engineSource.isPlaying) {
+          engineSource.Play();
+        }
+      } else if (engineSource.isPlaying) {
+        engineSource.Stop();
       }
     }
 
@@ -252,6 +295,7 @@ public class DrivableCar : MonoBehaviour
 
       foreach (RaycastHit hit in hits) {
         if (IsOwnCollider(hit.collider)) { continue; }
+        if (hit.collider.GetComponentInParent<Bonus>() != null) { continue; }
         if (!IsInFront(hit.collider.bounds.center)) { continue; }
         if (IsTooLowToBlockCar(hit.collider)) { continue; }
 
@@ -264,6 +308,21 @@ public class DrivableCar : MonoBehaviour
       }
 
       return false;
+    }
+
+    void IgnoreBonusCollisions()
+    {
+      Collider[] carColliders = GetComponentsInChildren<Collider>();
+      Bonus[] bonuses = FindObjectsByType<Bonus>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+
+      foreach (Collider carCollider in carColliders) {
+        foreach (Bonus bonus in bonuses) {
+          Collider[] bonusColliders = bonus.GetComponentsInChildren<Collider>();
+          foreach (Collider bonusCollider in bonusColliders) {
+            Physics.IgnoreCollision(carCollider, bonusCollider, true);
+          }
+        }
+      }
     }
 
     bool IsTooLowToBlockCar(Collider hitCollider)

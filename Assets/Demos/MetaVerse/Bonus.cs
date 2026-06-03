@@ -4,11 +4,12 @@ public class Bonus : MonoBehaviour
 {
     public LayerMask CollisionLayers;
     public int Points = 1;
+    bool isCollected;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        
+        IgnoreCarCollisions();
     }
 
     // Update is called once per frame
@@ -21,7 +22,23 @@ public class Bonus : MonoBehaviour
        return (CollisionLayers.value & (1 << other.gameObject.layer)) > 0;
     }
 
+    void IgnoreCarCollisions()
+    {
+      Collider[] bonusColliders = GetComponentsInChildren<Collider>();
+      DrivableCar[] cars = FindObjectsByType<DrivableCar>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+
+      foreach (Collider bonusCollider in bonusColliders) {
+        foreach (DrivableCar car in cars) {
+          Collider[] carColliders = car.GetComponentsInChildren<Collider>();
+          foreach (Collider carCollider in carColliders) {
+            Physics.IgnoreCollision(bonusCollider, carCollider, true);
+          }
+        }
+      }
+    }
+
     void OnTriggerEnter(Collider other) {
+      if (isCollected) { return; }
       if (!ShouldHandleObject(other)) { return; }
 
       CharacterScore cScore = other.GetComponentInParent<CharacterScore>();
@@ -36,8 +53,17 @@ public class Bonus : MonoBehaviour
       }
 
       if (cScore != null) {
+        isCollected = true;
+        enabled = false;
         cScore.AddScore(Points);
+        CharacterController controller = cScore.GetComponentInParent<CharacterController>();
+        if (controller == null) {
+          controller = cScore.GetComponentInChildren<CharacterController>();
+        }
+        ScorePanelHUD.ShowPickupMessage(controller);
       }
+
+      if (!isCollected) { return; }
 
       Destroy(gameObject);
     }
