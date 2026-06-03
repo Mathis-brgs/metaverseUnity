@@ -9,7 +9,7 @@ public class ScorePanelHUD : MonoBehaviour
     public Vector2 PanelSize = new Vector2(230f, 260f);
     public float RefreshInterval = 0.15f;
     public float PickupMessageDuration = 2f;
-    public int MaxDisplayedPlayers = 10;
+    public int MaxDisplayedPlayers = CharacterSkinCatalog.SkinCount;
 
     Text scoreText;
     Text pickupMessageText;

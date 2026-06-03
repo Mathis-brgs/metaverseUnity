@@ -11,6 +11,7 @@ public class PlayerState
     public float Z;
     public float RotY;
     public int Score;
+    public string SkinId;
 }
 
 [Serializable]
@@ -26,11 +27,12 @@ public class BonusState
 [Serializable]
 public class WorldState
 {
-    public int MaxPlayers = 10;
+    public int MaxPlayers = CharacterSkinCatalog.SkinCount;
     public Dictionary<string, PlayerState> Players = new Dictionary<string, PlayerState>();
     public Dictionary<string, BonusState> Bonuses = new Dictionary<string, BonusState>();
 
     int nextPlayerIndex = 1;
+    readonly List<int> availableSkinIndexes = new List<int>();
 
     public string GeneratePlayerId()
     {
@@ -57,6 +59,7 @@ public class WorldState
       Players[playerId] = new PlayerState {
         Id = playerId,
         Name = "Joueur " + playerId.Substring(1),
+        SkinId = TakeRandomSkinId(),
       };
 
       return playerId;
@@ -123,8 +126,38 @@ public class WorldState
       player = new PlayerState {
         Id = playerId,
         Name = playerId,
+        SkinId = TakeRandomSkinId(),
       };
       Players[playerId] = player;
       return player;
+    }
+
+    string TakeRandomSkinId()
+    {
+      RefillAvailableSkinsIfNeeded();
+      if (availableSkinIndexes.Count == 0) {
+        return CharacterSkinCatalog.GetSkin(0).Id;
+      }
+
+      int listIndex = UnityEngine.Random.Range(0, availableSkinIndexes.Count);
+      int skinIndex = availableSkinIndexes[listIndex];
+      availableSkinIndexes.RemoveAt(listIndex);
+      return CharacterSkinCatalog.GetSkin(skinIndex).Id;
+    }
+
+    void RefillAvailableSkinsIfNeeded()
+    {
+      if (availableSkinIndexes.Count > 0) { return; }
+
+      for (int i = 0; i < CharacterSkinCatalog.SkinCount; i++) {
+        availableSkinIndexes.Add(i);
+      }
+
+      foreach (PlayerState player in Players.Values) {
+        int skinIndex = CharacterSkinCatalog.GetSkinIndex(player.SkinId);
+        if (skinIndex >= 0) {
+          availableSkinIndexes.Remove(skinIndex);
+        }
+      }
     }
 }

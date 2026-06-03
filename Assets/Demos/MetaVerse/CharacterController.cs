@@ -10,6 +10,7 @@ public enum CharacterPlayer {
 public class CharacterController : MonoBehaviour
 {
     public CharacterPlayer Player = CharacterPlayer.Player1;
+    public string SkinId = "";
     public float WalkSpeed = 3;
     public float StrafeSpeed = 3;
     public float TurnSpeed = 720;
@@ -58,7 +59,6 @@ public class CharacterController : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        Anim = GetComponent<Animator>();
         inputs = new MetaverseInput();
         switch (Player) {
           case CharacterPlayer.Player1:
@@ -72,16 +72,18 @@ public class CharacterController : MonoBehaviour
         PlayerAction.Enable();
 
         rb = GetComponent<Rigidbody>();
-        renderers = GetComponentsInChildren<Renderer>();
         colliders = GetComponentsInChildren<Collider>();
         baseScale = transform.localScale;
+        RefreshVisualReferences();
     }
 
     // Update is called once per frame
     void FixedUpdate()
     {
         if (isDriving || isKnockedDown) {
-          Anim.SetFloat("Walk", 0f);
+          if (Anim != null) {
+            Anim.SetFloat("Walk", 0f);
+          }
           return;
         }
 
@@ -91,8 +93,10 @@ public class CharacterController : MonoBehaviour
         Vector3 movement = GetMovementDirection(vec);
         float moveAmount = Mathf.Clamp01(movement.magnitude / Mathf.Max(WalkSpeed, StrafeSpeed));
 
-        Anim.SetFloat("Walk", moveAmount);
-        Anim.speed = IsSlowed ? 0.55f : 1f;
+        if (Anim != null) {
+          Anim.SetFloat("Walk", moveAmount);
+          Anim.speed = IsSlowed ? 0.55f : 1f;
+        }
 
         if (movement.sqrMagnitude > 0.001f) {
           Quaternion targetRotation = Quaternion.LookRotation(movement.normalized, Vector3.up);
@@ -187,6 +191,32 @@ public class CharacterController : MonoBehaviour
 
     public bool IsDrivingCar {
       get { return isDriving; }
+    }
+
+    public void RefreshVisualReferences()
+    {
+      Anim = FindActiveAnimator();
+
+      Renderer[] allRenderers = GetComponentsInChildren<Renderer>(true);
+      System.Collections.Generic.List<Renderer> visibleRenderers = new System.Collections.Generic.List<Renderer>();
+      foreach (Renderer currentRenderer in allRenderers) {
+        if (currentRenderer.GetComponent<HiddenCharacterSkinRenderer>() != null) { continue; }
+        visibleRenderers.Add(currentRenderer);
+      }
+
+      renderers = visibleRenderers.ToArray();
+    }
+
+    Animator FindActiveAnimator()
+    {
+      Animator[] animators = GetComponentsInChildren<Animator>(true);
+      foreach (Animator currentAnimator in animators) {
+        if (currentAnimator.GetComponentInParent<RuntimeCharacterSkin>() != null) {
+          return currentAnimator;
+        }
+      }
+
+      return GetComponent<Animator>();
     }
 
     void ToggleCar()
@@ -427,11 +457,16 @@ public class CharacterController : MonoBehaviour
 
     IEnumerator PlayHitAnimation(string hitState)
     {
+      if (Anim == null) {
+        hitAnimationRoutine = null;
+        yield break;
+      }
+
       Anim.CrossFade(hitState, 0.05f);
 
       yield return new WaitForSeconds(HitAnimationDuration);
 
-      if (!isKnockedDown) {
+      if (!isKnockedDown && Anim != null) {
         Anim.CrossFade("Idle", 0.1f);
       }
 
@@ -450,20 +485,26 @@ public class CharacterController : MonoBehaviour
       slowedUntil = Time.time + KnockDownDuration + StandUpDuration;
       rb.linearVelocity = Vector3.zero;
       rb.angularVelocity = Vector3.zero;
-      Anim.speed = 1f;
-      Anim.CrossFade("KnockDown", 0.05f);
+      if (Anim != null) {
+        Anim.speed = 1f;
+        Anim.CrossFade("KnockDown", 0.05f);
+      }
       SetDamageColor(new Color(1f, 0.18f, 0.12f, 1f));
 
       yield return new WaitForSeconds(KnockDownDuration);
 
       ClearDamageColor();
-      Anim.CrossFade("StandUp", 0.08f);
+      if (Anim != null) {
+        Anim.CrossFade("StandUp", 0.08f);
+      }
 
       yield return new WaitForSeconds(StandUpDuration);
 
       isKnockedDown = false;
       knockDownRoutine = null;
-      Anim.CrossFade("Idle", 0.12f);
+      if (Anim != null) {
+        Anim.CrossFade("Idle", 0.12f);
+      }
     }
 
     void SetDamageColor(Color color)

@@ -25,6 +25,7 @@ public class PlayerJoinMessage
     public float x;
     public float y;
     public float z;
+    public string skinId;
 }
 
 [Serializable]
@@ -60,6 +61,7 @@ public class NetPlayerSnapshot
     public float z;
     public float rotY;
     public int score;
+    public string skinId;
 }
 
 [Serializable]

@@ -16,3 +16,5 @@ Les états réseau ont été ajoutés :
 - PlayerState : informations du joueur, position, rotation et score
 - BonusState : informations du bonus, position et s’il est déjà ramassé
 - WorldState : état complet du monde avec les joueurs et les bonus
+
+- Les éléments du jeu sont dynamique et s'adapte selon le nombre de joueur
