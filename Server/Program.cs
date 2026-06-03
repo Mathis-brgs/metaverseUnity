@@ -76,7 +76,11 @@ class GameServer
             if (!client.IsConnected)
             {
                 clients.Remove(client);
-                lock (stateLock) { udpEndpoints.Remove(client.Id); }
+                lock (stateLock)
+                {
+                    udpEndpoints.Remove(client.Id);
+                    worldState.Players.Remove(client.Id);
+                }
                 Console.WriteLine($"[-] {client.Id} déconnecté  ({clients.Count} joueurs)");
                 Broadcast($"{{\"type\":\"PLAYER_LEFT\",\"id\":\"{client.Id}\"}}", exclude: null);
                 continue;
@@ -109,6 +113,16 @@ class GameServer
 
     void HandleJoin(ConnectedClient sender, JsonDocument doc)
     {
+        // Anti double-JOIN
+        if (worldState.Players.ContainsKey(sender.Id)) return;
+
+        // Max 4 joueurs
+        if (worldState.Players.Count >= 4)
+        {
+            sender.Send("{\"type\":\"ERROR\",\"message\":\"Serveur plein\"}");
+            return;
+        }
+
         string name = doc.RootElement.GetProperty("name").GetString() ?? sender.Id;
 
         lock (stateLock)
@@ -196,6 +210,11 @@ class GameServer
                     float y    = doc.RootElement.GetProperty("y").GetSingle();
                     float z    = doc.RootElement.GetProperty("z").GetSingle();
                     float rotY = doc.RootElement.GetProperty("rotY").GetSingle();
+
+                    // Anti MOVE avant JOIN + validation coordonnées
+                    if (!worldState.Players.ContainsKey(id)) continue;
+                    if (float.IsNaN(x) || float.IsNaN(y) || float.IsNaN(z) ||
+                        float.IsInfinity(x) || float.IsInfinity(y) || float.IsInfinity(z)) continue;
 
                     lock (stateLock)
                     {
