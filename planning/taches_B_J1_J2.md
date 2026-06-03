@@ -136,7 +136,7 @@ public class NetworkManager : MonoBehaviour
 ### Livrable fin J2 (à partager avec A et C)
 
 - [ ] Tableau des événements réseau complété
-- [ ] Plan du `NetworkManager.cs` esquissé (méthodes, responsabilités)
+- [x] `NetworkManager.cs` — `Assets/Game/Networking/` (protocole A : TCP + UDP, `INIT_STATE`, `TAKE`, etc.)
 - [ ] Prefab du personnage identifié
 - [ ] Liste des questions/blocages à discuter avec A sur le protocole
 
