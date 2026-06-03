@@ -7,9 +7,12 @@ public class ScorePanelHUD : MonoBehaviour
     public Vector2 PanelPosition = new Vector2(18f, -18f);
     public Vector2 PanelSize = new Vector2(190f, 78f);
     public float RefreshInterval = 0.15f;
+    public float PickupMessageDuration = 2f;
 
     Text scoreText;
+    Text pickupMessageText;
     float nextRefreshTime;
+    float pickupMessageUntil;
     readonly StringBuilder builder = new StringBuilder();
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -29,10 +32,23 @@ public class ScorePanelHUD : MonoBehaviour
 
     void Update()
     {
+      UpdatePickupMessage();
+
       if (Time.time < nextRefreshTime) { return; }
 
       nextRefreshTime = Time.time + RefreshInterval;
       Refresh();
+    }
+
+    public static void ShowPickupMessage(CharacterController player)
+    {
+      ScorePanelHUD hud = FindFirstObjectByType<ScorePanelHUD>();
+      if (hud == null) {
+        GameObject root = new GameObject("Score Panel HUD");
+        hud = root.AddComponent<ScorePanelHUD>();
+      }
+
+      hud.ShowPickupMessageInternal(player);
     }
 
     void BuildPanel()
@@ -76,6 +92,25 @@ public class ScorePanelHUD : MonoBehaviour
       scoreText.alignment = TextAnchor.MiddleLeft;
       scoreText.horizontalOverflow = HorizontalWrapMode.Overflow;
       scoreText.verticalOverflow = VerticalWrapMode.Overflow;
+
+      GameObject messageObject = new GameObject("Pickup Message");
+      messageObject.transform.SetParent(transform, false);
+
+      RectTransform messageTransform = messageObject.AddComponent<RectTransform>();
+      messageTransform.anchorMin = new Vector2(0.5f, 1f);
+      messageTransform.anchorMax = new Vector2(0.5f, 1f);
+      messageTransform.pivot = new Vector2(0.5f, 1f);
+      messageTransform.anchoredPosition = new Vector2(0f, -22f);
+      messageTransform.sizeDelta = new Vector2(520f, 44f);
+
+      pickupMessageText = messageObject.AddComponent<Text>();
+      pickupMessageText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+      pickupMessageText.fontSize = 28;
+      pickupMessageText.color = Color.white;
+      pickupMessageText.alignment = TextAnchor.MiddleCenter;
+      pickupMessageText.horizontalOverflow = HorizontalWrapMode.Overflow;
+      pickupMessageText.verticalOverflow = VerticalWrapMode.Overflow;
+      pickupMessageText.enabled = false;
     }
 
     void Refresh()
@@ -110,5 +145,35 @@ public class ScorePanelHUD : MonoBehaviour
       builder.Append(player2Score);
 
       scoreText.text = builder.ToString();
+    }
+
+    void ShowPickupMessageInternal(CharacterController player)
+    {
+      if (pickupMessageText == null || player == null) { return; }
+
+      pickupMessageText.text = GetPlayerDisplayName(player.Player) + " a ramassé un cube";
+      pickupMessageText.enabled = true;
+      pickupMessageUntil = Time.time + PickupMessageDuration;
+    }
+
+    void UpdatePickupMessage()
+    {
+      if (pickupMessageText == null || !pickupMessageText.enabled) { return; }
+
+      if (Time.time >= pickupMessageUntil) {
+        pickupMessageText.enabled = false;
+      }
+    }
+
+    string GetPlayerDisplayName(CharacterPlayer player)
+    {
+      switch (player) {
+        case CharacterPlayer.Player1:
+          return "Joueur 1";
+        case CharacterPlayer.Player2:
+          return "Joueur 2";
+        default:
+          return "Joueur";
+      }
     }
 }
