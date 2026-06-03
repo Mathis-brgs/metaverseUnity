@@ -1,19 +1,25 @@
 using System.Text;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class ScorePanelHUD : MonoBehaviour
 {
     public Vector2 PanelPosition = new Vector2(18f, -18f);
-    public Vector2 PanelSize = new Vector2(190f, 78f);
+    public Vector2 PanelSize = new Vector2(230f, 260f);
     public float RefreshInterval = 0.15f;
     public float PickupMessageDuration = 2f;
+    public int MaxDisplayedPlayers = 10;
 
     Text scoreText;
     Text pickupMessageText;
     float nextRefreshTime;
     float pickupMessageUntil;
     readonly StringBuilder builder = new StringBuilder();
+    readonly List<PlayerScoreLine> scoreLines = new List<PlayerScoreLine>();
+    readonly Dictionary<string, PlayerScoreLine> networkScoreLines = new Dictionary<string, PlayerScoreLine>();
+    NetworkManager networkManager;
+    bool useNetworkScores;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void CreateScorePanel()
@@ -27,7 +33,13 @@ public class ScorePanelHUD : MonoBehaviour
     void Awake()
     {
       BuildPanel();
+      RegisterNetworkManager();
       Refresh();
+    }
+
+    void OnDestroy()
+    {
+      UnregisterNetworkManager();
     }
 
     void Update()
@@ -115,34 +127,41 @@ public class ScorePanelHUD : MonoBehaviour
 
     void Refresh()
     {
-      int player1Score = 0;
-      int player2Score = 0;
+      scoreLines.Clear();
 
-      CharacterScore[] scores = FindObjectsByType<CharacterScore>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-      foreach (CharacterScore score in scores) {
-        CharacterController controller = score.GetComponentInParent<CharacterController>();
-        if (controller == null) {
-          controller = score.GetComponentInChildren<CharacterController>();
+      if (useNetworkScores) {
+        foreach (PlayerScoreLine scoreLine in networkScoreLines.Values) {
+          scoreLines.Add(scoreLine);
         }
+      } else {
+        CharacterScore[] scores = FindObjectsByType<CharacterScore>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        foreach (CharacterScore score in scores) {
+          CharacterController controller = score.GetComponentInParent<CharacterController>();
+          if (controller == null) {
+            controller = score.GetComponentInChildren<CharacterController>();
+          }
 
-        if (controller == null) { continue; }
+          if (controller == null) { continue; }
 
-        switch (controller.Player) {
-          case CharacterPlayer.Player1:
-            player1Score += score.Score;
-            break;
-          case CharacterPlayer.Player2:
-            player2Score += score.Score;
-            break;
+          AddOrUpdateScoreLine(GetPlayerDisplayName(controller), score.Score);
         }
       }
 
+      scoreLines.Sort((a, b) => a.SortKey.CompareTo(b.SortKey));
+
       builder.Clear();
-      builder.Append("Joueur 1 : ");
-      builder.Append(player1Score);
-      builder.AppendLine();
-      builder.Append("Joueur 2 : ");
-      builder.Append(player2Score);
+      builder.Append("Joueurs : ");
+      builder.Append(scoreLines.Count);
+      builder.Append(" / ");
+      builder.Append(MaxDisplayedPlayers);
+
+      int lineCount = Mathf.Min(scoreLines.Count, MaxDisplayedPlayers);
+      for (int i = 0; i < lineCount; i++) {
+        builder.AppendLine();
+        builder.Append(scoreLines[i].Name);
+        builder.Append(" : ");
+        builder.Append(scoreLines[i].Score);
+      }
 
       scoreText.text = builder.ToString();
     }
@@ -165,6 +184,140 @@ public class ScorePanelHUD : MonoBehaviour
       }
     }
 
+    void RegisterNetworkManager()
+    {
+      networkManager = FindFirstObjectByType<NetworkManager>();
+      if (networkManager == null) { return; }
+
+      if (networkManager.OnInitState != null) {
+        networkManager.OnInitState.AddListener(HandleInitState);
+      }
+      if (networkManager.OnPlayerJoin != null) {
+        networkManager.OnPlayerJoin.AddListener(HandlePlayerJoin);
+      }
+      if (networkManager.OnPlayerLeft != null) {
+        networkManager.OnPlayerLeft.AddListener(HandlePlayerLeft);
+      }
+      if (networkManager.OnBonusTaken != null) {
+        networkManager.OnBonusTaken.AddListener(HandleBonusTaken);
+      }
+    }
+
+    void UnregisterNetworkManager()
+    {
+      if (networkManager == null) { return; }
+
+      if (networkManager.OnInitState != null) {
+        networkManager.OnInitState.RemoveListener(HandleInitState);
+      }
+      if (networkManager.OnPlayerJoin != null) {
+        networkManager.OnPlayerJoin.RemoveListener(HandlePlayerJoin);
+      }
+      if (networkManager.OnPlayerLeft != null) {
+        networkManager.OnPlayerLeft.RemoveListener(HandlePlayerLeft);
+      }
+      if (networkManager.OnBonusTaken != null) {
+        networkManager.OnBonusTaken.RemoveListener(HandleBonusTaken);
+      }
+    }
+
+    void HandleInitState(InitStateMessage message)
+    {
+      useNetworkScores = true;
+      networkScoreLines.Clear();
+
+      if (message == null || message.players == null) { return; }
+
+      foreach (NetPlayerSnapshot player in message.players) {
+        SetNetworkScoreLine(player.id, player.name, player.score);
+      }
+    }
+
+    void HandlePlayerJoin(PlayerJoinMessage message)
+    {
+      if (message == null) { return; }
+
+      useNetworkScores = true;
+      SetNetworkScoreLine(message.id, message.name, 0);
+    }
+
+    void HandlePlayerLeft(PlayerLeftMessage message)
+    {
+      if (message == null) { return; }
+
+      networkScoreLines.Remove(message.id);
+    }
+
+    void HandleBonusTaken(BonusTakenMessage message)
+    {
+      if (message == null) { return; }
+
+      useNetworkScores = true;
+      PlayerScoreLine scoreLine;
+      if (!networkScoreLines.TryGetValue(message.byPlayerId, out scoreLine)) {
+        SetNetworkScoreLine(message.byPlayerId, message.byPlayerId, message.newScore);
+        return;
+      }
+
+      scoreLine.Score = message.newScore;
+      networkScoreLines[message.byPlayerId] = scoreLine;
+    }
+
+    void SetNetworkScoreLine(string playerId, string playerName, int score)
+    {
+      if (string.IsNullOrEmpty(playerId)) { return; }
+      if (string.IsNullOrEmpty(playerName)) {
+        playerName = playerId;
+      }
+
+      networkScoreLines[playerId] = new PlayerScoreLine {
+        Name = playerName,
+        Score = score,
+        SortKey = GetPlayerSortKey(playerId),
+      };
+    }
+
+    void AddOrUpdateScoreLine(string playerName, int score)
+    {
+      for (int i = 0; i < scoreLines.Count; i++) {
+        if (scoreLines[i].Name != playerName) { continue; }
+
+        PlayerScoreLine existingLine = scoreLines[i];
+        existingLine.Score += score;
+        scoreLines[i] = existingLine;
+        return;
+      }
+
+      scoreLines.Add(new PlayerScoreLine {
+        Name = playerName,
+        Score = score,
+        SortKey = GetPlayerSortKey(playerName),
+      });
+    }
+
+    int GetPlayerSortKey(string playerName)
+    {
+      string digits = "";
+      for (int i = 0; i < playerName.Length; i++) {
+        if (char.IsDigit(playerName[i])) {
+          digits += playerName[i];
+        }
+      }
+
+      int sortKey;
+      if (int.TryParse(digits, out sortKey)) {
+        return sortKey;
+      }
+
+      return int.MaxValue;
+    }
+
+    string GetPlayerDisplayName(CharacterController player)
+    {
+      if (player == null) { return "Joueur"; }
+      return GetPlayerDisplayName(player.Player);
+    }
+
     string GetPlayerDisplayName(CharacterPlayer player)
     {
       switch (player) {
@@ -175,5 +328,12 @@ public class ScorePanelHUD : MonoBehaviour
         default:
           return "Joueur";
       }
+    }
+
+    struct PlayerScoreLine
+    {
+      public string Name;
+      public int Score;
+      public int SortKey;
     }
 }

@@ -26,6 +26,7 @@ public class BonusState
 [Serializable]
 public class WorldState
 {
+    public int MaxPlayers = 10;
     public Dictionary<string, PlayerState> Players = new Dictionary<string, PlayerState>();
     public Dictionary<string, BonusState> Bonuses = new Dictionary<string, BonusState>();
 
@@ -33,8 +34,22 @@ public class WorldState
 
     public string GeneratePlayerId()
     {
+      if (Players.Count >= MaxPlayers) {
+        return null;
+      }
+
       string playerId;
+      int attempts = 0;
       do {
+        attempts++;
+        if (attempts > MaxPlayers) {
+          return null;
+        }
+
+        if (nextPlayerIndex > MaxPlayers) {
+          nextPlayerIndex = 1;
+        }
+
         playerId = "p" + nextPlayerIndex;
         nextPlayerIndex++;
       } while (Players.ContainsKey(playerId));

@@ -3,7 +3,7 @@ using UnityEngine;
 public class CityAmbienceSound : MonoBehaviour
 {
     public string AmbienceFileName = "SFX_Brouhaha.mp3";
-    public float Volume = 0.28f;
+    public float Volume = 0.22f;
     public float RestartAtPercent = 0.3f;
 
     AudioSource audioSource;
