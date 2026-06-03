@@ -14,6 +14,9 @@ public class CharacterController : MonoBehaviour
     public float StrafeSpeed = 3;
     public float TurnSpeed = 720;
     public bool UseCameraRelativeMovement = true;
+    public float BonusSpeedIncrement = 0.5f;
+    public float MaxBonusSpeedMultiplier = 2f;
+    public float BonusSpeedDuration = 5f;
     public LayerMask CharacterLayers = 1 << 6;
     public float AttackRange = 1.6f;
     public float AttackCooldown = 0.8f;
@@ -39,6 +42,8 @@ public class CharacterController : MonoBehaviour
     Vector3 baseScale;
     float nextAttackTime;
     float slowedUntil;
+    float speedBoostUntil;
+    float bonusSpeedMultiplier = 1f;
     Coroutine hitFeedback;
     Coroutine hitAnimationRoutine;
     Coroutine attackFeedback;
@@ -151,7 +156,28 @@ public class CharacterController : MonoBehaviour
     }
 
     float CurrentSpeedMultiplier {
-      get { return IsSlowed ? AttackSlowMultiplier : 1f; }
+      get {
+        float multiplier = IsSlowed ? AttackSlowMultiplier : 1f;
+        if (IsSpeedBoosted) {
+          multiplier *= bonusSpeedMultiplier;
+        }
+
+        return multiplier;
+      }
+    }
+
+    bool IsSpeedBoosted {
+      get { return Time.time < speedBoostUntil; }
+    }
+
+    public void ApplyBonusSpeedBoost()
+    {
+      if (!IsSpeedBoosted) {
+        bonusSpeedMultiplier = 1f;
+      }
+
+      bonusSpeedMultiplier = Mathf.Min(MaxBonusSpeedMultiplier, bonusSpeedMultiplier + BonusSpeedIncrement);
+      speedBoostUntil = Mathf.Max(speedBoostUntil, Time.time + BonusSpeedDuration);
     }
 
     public Vector2 GetMoveInput()

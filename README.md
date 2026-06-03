@@ -3,6 +3,7 @@
 - Affiche un message quand un joueur prend un cube
 - Ajout d'un panneau de score en haut à gauche
 - Pouvoir déplacer la vue de la caméra
+- Prendre un cube augmente le déplacement du personnage (augmentation progressive selon le nombre de cube récupérer, max : 2f)
 ## Les joueurs 
 - Les joueurs peuvent prendre la voiture (ne peux pas prendre de cube dans une voiture)
 - Les joueurs peuvent se battre (au bout de 3 coups, l'autre tombe = ralentissement)

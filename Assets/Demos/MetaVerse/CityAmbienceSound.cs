@@ -1,17 +1,14 @@
-using System.Collections;
 using UnityEngine;
 
 public class CityAmbienceSound : MonoBehaviour
 {
     public string AmbienceFileName = "SFX_Brouhaha.mp3";
     public float Volume = 0.28f;
-    public float RestartAtPercent = 0.5f;
-    public float CrossfadeDuration = 0.1f;
+    public float RestartAtPercent = 0.3f;
 
-    AudioSource sourceA;
-    AudioSource sourceB;
+    AudioSource audioSource;
     AudioClip ambienceClip;
-    bool playingA = true;
+    float restartTime;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void CreateAmbience()
@@ -24,8 +21,7 @@ public class CityAmbienceSound : MonoBehaviour
 
     void Awake()
     {
-      sourceA = CreateAmbienceSource();
-      sourceB = CreateAmbienceSource();
+      audioSource = CreateAmbienceSource();
     }
 
     void Start()
@@ -33,7 +29,7 @@ public class CityAmbienceSound : MonoBehaviour
       StartCoroutine(LoadAndPlay());
     }
 
-    IEnumerator LoadAndPlay()
+    System.Collections.IEnumerator LoadAndPlay()
     {
       AudioClip loadedClip = null;
       yield return MetaVerseSoundLibrary.LoadClip(AmbienceFileName, clip => loadedClip = clip);
@@ -41,7 +37,11 @@ public class CityAmbienceSound : MonoBehaviour
       if (loadedClip == null) { yield break; }
 
       ambienceClip = loadedClip;
-      StartCoroutine(PlayLoopWithCrossfade());
+      restartTime = Mathf.Max(0.01f, Mathf.Clamp01(RestartAtPercent) * ambienceClip.length);
+      audioSource.clip = ambienceClip;
+      audioSource.time = 0f;
+      audioSource.volume = Volume;
+      audioSource.Play();
     }
 
     AudioSource CreateAmbienceSource()
@@ -50,46 +50,16 @@ public class CityAmbienceSound : MonoBehaviour
       audioSource.playOnAwake = false;
       audioSource.loop = false;
       audioSource.spatialBlend = 0f;
-      audioSource.volume = 0f;
+      audioSource.volume = Volume;
       return audioSource;
     }
 
-    IEnumerator PlayLoopWithCrossfade()
+    void Update()
     {
-      if (ambienceClip == null) { yield break; }
+      if (audioSource == null || ambienceClip == null || !audioSource.isPlaying) { return; }
 
-      sourceA.clip = ambienceClip;
-      sourceA.volume = Volume;
-      sourceA.Play();
-      playingA = true;
-
-      while (true) {
-        AudioSource activeSource = playingA ? sourceA : sourceB;
-        AudioSource nextSource = playingA ? sourceB : sourceA;
-        float restartTime = Mathf.Clamp01(RestartAtPercent) * ambienceClip.length;
-        float fadeDuration = Mathf.Min(CrossfadeDuration, Mathf.Max(0.01f, restartTime * 0.5f));
-        float waitTime = Mathf.Max(0.01f, restartTime - fadeDuration);
-
-        yield return new WaitForSeconds(waitTime);
-
-        nextSource.clip = ambienceClip;
-        nextSource.time = 0f;
-        nextSource.volume = 0f;
-        nextSource.Play();
-
-        float elapsed = 0f;
-        while (elapsed < fadeDuration) {
-          float t = elapsed / fadeDuration;
-          activeSource.volume = Mathf.Lerp(Volume, 0f, t);
-          nextSource.volume = Mathf.Lerp(0f, Volume, t);
-          elapsed += Time.deltaTime;
-          yield return null;
-        }
-
-        activeSource.Stop();
-        activeSource.volume = 0f;
-        nextSource.volume = Volume;
-        playingA = !playingA;
+      if (audioSource.time >= restartTime) {
+        audioSource.time = 0f;
       }
     }
 }
