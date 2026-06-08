@@ -69,17 +69,21 @@ public class RemotePlayerManager : MonoBehaviour
         _targetRotY.Remove(msg.id);
     }
 
-    void Update()
+    void FixedUpdate()
     {
         foreach (var kvp in _spawned)
         {
             if (!_targetPos.TryGetValue(kvp.Key, out var tPos)) continue;
-            kvp.Value.transform.position = Vector3.Lerp(kvp.Value.transform.position, tPos, Time.deltaTime * 12f);
-            if (_targetRotY.TryGetValue(kvp.Key, out var tRot))
+            var rb = kvp.Value.GetComponent<Rigidbody>();
+            if (rb != null)
             {
-                var e = kvp.Value.transform.eulerAngles;
-                e.y = Mathf.LerpAngle(e.y, tRot, Time.deltaTime * 12f);
-                kvp.Value.transform.eulerAngles = e;
+                rb.MovePosition(Vector3.Lerp(rb.position, tPos, Time.fixedDeltaTime * 12f));
+                if (_targetRotY.TryGetValue(kvp.Key, out var tRot))
+                    rb.MoveRotation(Quaternion.Lerp(rb.rotation, Quaternion.Euler(0f, tRot, 0f), Time.fixedDeltaTime * 12f));
+            }
+            else
+            {
+                kvp.Value.transform.position = Vector3.Lerp(kvp.Value.transform.position, tPos, Time.fixedDeltaTime * 12f);
             }
         }
     }
@@ -106,9 +110,16 @@ public class RemotePlayerManager : MonoBehaviour
         var go = Instantiate(prefab, new Vector3(x, y, z), Quaternion.Euler(0f, rotY, 0f));
         go.name = "RemotePlayer_" + id;
 
+        // Désactive le script de mouvement/input
         var controller = go.GetComponentInChildren<CharacterController>();
         if (controller != null)
             controller.enabled = false;
+
+        // Rigidbody kinematic : se déplace via MovePosition et bloque le joueur local
+        var rb = go.GetComponent<Rigidbody>();
+        if (rb == null) rb = go.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
 
         _spawned[id] = go;
     }
