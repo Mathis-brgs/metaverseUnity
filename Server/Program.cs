@@ -113,25 +113,19 @@ class GameServer
 
     void HandleJoin(ConnectedClient sender, JsonDocument doc)
     {
-        // Anti double-JOIN
-        if (worldState.Players.ContainsKey(sender.Id)) return;
-
-        // Max 4 joueurs
-        if (worldState.Players.Count >= 4)
-        {
-            sender.Send("{\"type\":\"ERROR\",\"message\":\"Serveur plein\"}");
-            return;
-        }
-
         string name = doc.RootElement.GetProperty("name").GetString() ?? sender.Id;
 
         lock (stateLock)
         {
-            var player = worldState.Players.ContainsKey(sender.Id)
-                ? worldState.Players[sender.Id]
-                : new PlayerState { Id = sender.Id, Name = name };
-            player.Name = name;
-            worldState.Players[sender.Id] = player;
+            if (worldState.Players.ContainsKey(sender.Id)) return;
+
+            if (worldState.Players.Count >= 4)
+            {
+                sender.Send("{\"type\":\"ERROR\",\"message\":\"Serveur plein\"}");
+                return;
+            }
+
+            worldState.Players[sender.Id] = new PlayerState { Id = sender.Id, Name = name };
         }
 
         // Envoyer l'état complet au nouveau joueur

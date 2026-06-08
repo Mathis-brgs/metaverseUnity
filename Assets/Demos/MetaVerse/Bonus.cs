@@ -56,9 +56,9 @@ public class Bonus : MonoBehaviour
         isCollected = true;
         enabled = false;
         cScore.AddScore(Points);
-        CharacterController controller = cScore.GetComponentInParent<CharacterController>();
-        if (controller == null) {
-          controller = cScore.GetComponentInChildren<CharacterController>();
+        CharacterController controller = FindCollectorController(other, cScore);
+        if (controller != null) {
+          controller.ApplyBonusSpeedBoost();
         }
         ScorePanelHUD.ShowPickupMessage(controller);
       }
@@ -66,5 +66,16 @@ public class Bonus : MonoBehaviour
       if (!isCollected) { return; }
 
       Destroy(gameObject);
+    }
+
+    CharacterController FindCollectorController(Collider other, CharacterScore cScore)
+    {
+      CharacterController controller = other.GetComponentInParent<CharacterController>();
+      if (controller != null) { return controller; }
+
+      controller = cScore.GetComponentInParent<CharacterController>();
+      if (controller != null) { return controller; }
+
+      return cScore.GetComponentInChildren<CharacterController>();
     }
 }
