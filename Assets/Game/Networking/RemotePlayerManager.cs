@@ -1,6 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Spawne le joueur local ET les joueurs distants avec le bon modèle.
+/// Assigner les prefabs par nom de perso dans CharacterPrefabs (Inspector).
+/// </summary>
 public class RemotePlayerManager : MonoBehaviour
 {
     [System.Serializable]
@@ -14,8 +18,6 @@ public class RemotePlayerManager : MonoBehaviour
 
     NetworkManager _net;
     readonly Dictionary<string, GameObject> _spawned = new Dictionary<string, GameObject>();
-    readonly Dictionary<string, Rigidbody> _rigidbodies = new Dictionary<string, Rigidbody>();
-    readonly Dictionary<string, Animator> _animators = new Dictionary<string, Animator>();
     readonly Dictionary<string, Vector3> _targetPos = new Dictionary<string, Vector3>();
     readonly Dictionary<string, float> _targetRotY = new Dictionary<string, float>();
 
@@ -48,7 +50,7 @@ public class RemotePlayerManager : MonoBehaviour
         if (msg.players == null) return;
         foreach (var p in msg.players)
         {
-            if (p.id == msg.playerId) continue;
+            if (p.id == msg.playerId) continue; // joueur local = Player1 déjà dans la scène
             SpawnRemote(p.id, p.character, p.x, p.y, p.z, p.rotY);
         }
     }
@@ -63,33 +65,21 @@ public class RemotePlayerManager : MonoBehaviour
         if (!_spawned.TryGetValue(msg.id, out var go)) return;
         Destroy(go);
         _spawned.Remove(msg.id);
-        _rigidbodies.Remove(msg.id);
-        _animators.Remove(msg.id);
         _targetPos.Remove(msg.id);
         _targetRotY.Remove(msg.id);
     }
 
-    void FixedUpdate()
+    void Update()
     {
         foreach (var kvp in _spawned)
         {
             if (!_targetPos.TryGetValue(kvp.Key, out var tPos)) continue;
-            if (!_rigidbodies.TryGetValue(kvp.Key, out var rb) || rb == null) continue;
-
-            Vector3 prevPos = rb.position;
-            Vector3 nextPos = Vector3.Lerp(prevPos, tPos, Time.fixedDeltaTime * 12f);
-
-            // MovePosition comme le joueur local : respecte la physique et la collision
-            rb.MovePosition(nextPos);
-
+            kvp.Value.transform.position = Vector3.Lerp(kvp.Value.transform.position, tPos, Time.deltaTime * 12f);
             if (_targetRotY.TryGetValue(kvp.Key, out var tRot))
-                rb.MoveRotation(Quaternion.Euler(0f, Mathf.LerpAngle(rb.rotation.eulerAngles.y, tRot, Time.fixedDeltaTime * 12f), 0f));
-
-            // Anime selon la vitesse de déplacement
-            if (_animators.TryGetValue(kvp.Key, out var anim) && anim != null)
             {
-                float speed = (nextPos - prevPos).magnitude / Time.fixedDeltaTime;
-                anim.SetFloat("Walk", Mathf.Clamp01(speed / 3f));
+                var e = kvp.Value.transform.eulerAngles;
+                e.y = Mathf.LerpAngle(e.y, tRot, Time.deltaTime * 12f);
+                kvp.Value.transform.eulerAngles = e;
             }
         }
     }
@@ -116,18 +106,9 @@ public class RemotePlayerManager : MonoBehaviour
         var go = Instantiate(prefab, new Vector3(x, y, z), Quaternion.Euler(0f, rotY, 0f));
         go.name = "RemotePlayer_" + id;
 
-        // Désactive uniquement le script d'input — le Rigidbody reste non-kinematic
-        // pour que la collision fonctionne exactement comme entre deux joueurs locaux
         var controller = go.GetComponentInChildren<CharacterController>();
         if (controller != null)
             controller.enabled = false;
-
-        var rb = go.GetComponent<Rigidbody>();
-        if (rb != null)
-            _rigidbodies[id] = rb;
-
-        var anim = go.GetComponentInChildren<Animator>();
-        if (anim != null) _animators[id] = anim;
 
         _spawned[id] = go;
     }
@@ -139,6 +120,7 @@ public class RemotePlayerManager : MonoBehaviour
                 if (entry.Name == characterName && entry.Prefab != null)
                     return entry.Prefab;
 
+        // fallback : premier prefab disponible
         foreach (var entry in CharacterPrefabs)
             if (entry.Prefab != null) return entry.Prefab;
 
