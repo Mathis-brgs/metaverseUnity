@@ -27,12 +27,14 @@ class GameServer
         InitBonuses();
     }
 
-    // Positions des bonus hardcodées — à synchroniser avec la scène Unity de C
     void InitBonuses()
     {
         worldState.AddOrUpdateBonus("b0",  2.0f, 0.5f, -1.0f);
         worldState.AddOrUpdateBonus("b1", -3.0f, 0.5f,  4.0f);
         worldState.AddOrUpdateBonus("b2",  5.0f, 0.5f,  2.0f);
+        // Extra bonus générés côté client (seed 12345) — positions non critiques serveur
+        for (int i = 1; i <= 8; i++)
+            worldState.AddOrUpdateBonus("extra_" + i, 0f, 0f, 0f);
     }
 
     public void Start()
@@ -255,6 +257,7 @@ class ConnectedClient
     TcpClient tcp;
     StreamReader reader;
     StreamWriter writer;
+    bool _disconnected = false;
 
     public ConnectedClient(TcpClient tcp, string id)
     {
@@ -264,17 +267,22 @@ class ConnectedClient
         writer = new StreamWriter(tcp.GetStream()) { AutoFlush = true };
     }
 
-    public bool IsConnected => tcp.Connected;
+    public bool IsConnected => !_disconnected && tcp.Connected;
 
     public string? ReadLine()
     {
-        if (tcp.Available == 0) return null;
-        return reader.ReadLine();
+        try
+        {
+            if (!tcp.Client.Poll(0, System.Net.Sockets.SelectMode.SelectRead)) return null;
+            if (tcp.Available == 0) { _disconnected = true; return null; }
+            return reader.ReadLine();
+        }
+        catch { _disconnected = true; return null; }
     }
 
     public void Send(string message)
     {
         try { writer.WriteLine(message); }
-        catch { }
+        catch { _disconnected = true; }
     }
 }
