@@ -48,14 +48,14 @@ public class RemotePlayerManager : MonoBehaviour
         if (msg.players == null) return;
         foreach (var p in msg.players)
         {
-            bool isLocal = p.id == msg.playerId;
-            SpawnPlayer(p.id, p.character, p.x, p.y, p.z, p.rotY, isLocal);
+            if (p.id == msg.playerId) continue; // joueur local = Player1 déjà dans la scène
+            SpawnRemote(p.id, p.character, p.x, p.y, p.z, p.rotY);
         }
     }
 
     void HandlePlayerJoin(PlayerJoinMessage msg)
     {
-        SpawnPlayer(msg.id, msg.character, msg.x, msg.y, msg.z, 0f, false);
+        SpawnRemote(msg.id, msg.character, msg.x, msg.y, msg.z, 0f);
     }
 
     void HandlePlayerLeft(PlayerLeftMessage msg)
@@ -77,7 +77,7 @@ public class RemotePlayerManager : MonoBehaviour
         }
     }
 
-    void SpawnPlayer(string id, string character, float x, float y, float z, float rotY, bool isLocal)
+    void SpawnRemote(string id, string character, float x, float y, float z, float rotY)
     {
         if (_spawned.ContainsKey(id)) return;
 
@@ -85,17 +85,11 @@ public class RemotePlayerManager : MonoBehaviour
         if (prefab == null) return;
 
         var go = Instantiate(prefab, new Vector3(x, y, z), Quaternion.Euler(0f, rotY, 0f));
-        go.name = isLocal ? "LocalPlayer" : "RemotePlayer_" + id;
+        go.name = "RemotePlayer_" + id;
 
         var controller = go.GetComponentInChildren<CharacterController>();
         if (controller != null)
-            controller.enabled = isLocal;
-
-        if (isLocal)
-        {
-            _net.MoveSource = go.transform;
-            _net.SendMoveAutomatically = true;
-        }
+            controller.enabled = false;
 
         _spawned[id] = go;
     }

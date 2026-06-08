@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 /// <summary>
 /// Écran de connexion auto-construit.
@@ -16,23 +17,52 @@ public class ConnectionUI : MonoBehaviour
     Button[] _charButtons;
     GameObject _panel;
 
+    public static bool Enabled = false; // mettre true pour réactiver l'UI de connexion
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Create()
     {
+        if (!Enabled) return;
         if (FindFirstObjectByType<ConnectionUI>() != null) return;
         var go = new GameObject("Connection UI");
         go.AddComponent<ConnectionUI>();
     }
 
+    CameraMouseOrbit _camOrbit;
+
     void Awake()
     {
         _net = FindFirstObjectByType<NetworkManager>();
         _rpm = FindFirstObjectByType<RemotePlayerManager>();
+        _camOrbit = FindFirstObjectByType<CameraMouseOrbit>();
+        if (_camOrbit != null) _camOrbit.enabled = false;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
         BuildUI();
+    }
+
+    void Update()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    void OnDestroy()
+    {
+        if (_camOrbit != null) _camOrbit.enabled = true;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     void BuildUI()
     {
+        if (FindFirstObjectByType<EventSystem>() == null)
+        {
+            var es = new GameObject("EventSystem");
+            es.AddComponent<EventSystem>();
+            es.AddComponent<StandaloneInputModule>();
+        }
+
         var canvas = gameObject.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 200;
@@ -81,6 +111,7 @@ public class ConnectionUI : MonoBehaviour
             var btnImg = btnGo.AddComponent<Image>();
             btnImg.color = i == 0 ? new Color(0.2f, 0.6f, 1f) : new Color(0.3f, 0.3f, 0.4f);
             var btn = btnGo.AddComponent<Button>();
+            btn.targetGraphic = btnImg;
             var label = CreateText(btnGo.transform, CharacterNames[i], 18);
             Place(label, 0.5f, 0.5f, 150, 56);
             _charButtons[i] = btn;
@@ -100,6 +131,7 @@ public class ConnectionUI : MonoBehaviour
     void SelectCharacter(int index)
     {
         _selectedCharacter = CharacterNames[index];
+        Debug.Log("[ConnectionUI] SelectCharacter: " + _selectedCharacter);
         for (int i = 0; i < _charButtons.Length; i++)
         {
             var img = _charButtons[i].GetComponent<Image>();
@@ -139,6 +171,7 @@ public class ConnectionUI : MonoBehaviour
         t.color = Color.white;
         t.alignment = TextAnchor.MiddleCenter;
         t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        t.raycastTarget = false;
         return go;
     }
 
