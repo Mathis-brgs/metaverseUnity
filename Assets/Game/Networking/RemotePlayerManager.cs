@@ -1,10 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Spawne le joueur local ET les joueurs distants avec le bon modèle.
-/// Assigner les prefabs par nom de perso dans CharacterPrefabs (Inspector).
-/// </summary>
 public class RemotePlayerManager : MonoBehaviour
 {
     [System.Serializable]
@@ -18,7 +14,6 @@ public class RemotePlayerManager : MonoBehaviour
 
     NetworkManager _net;
     readonly Dictionary<string, GameObject> _spawned = new Dictionary<string, GameObject>();
-    readonly Dictionary<string, Rigidbody> _rigidbodies = new Dictionary<string, Rigidbody>();
     readonly Dictionary<string, Vector3> _targetPos = new Dictionary<string, Vector3>();
     readonly Dictionary<string, float> _targetRotY = new Dictionary<string, float>();
 
@@ -51,7 +46,7 @@ public class RemotePlayerManager : MonoBehaviour
         if (msg.players == null) return;
         foreach (var p in msg.players)
         {
-            if (p.id == msg.playerId) continue; // joueur local = Player1 déjà dans la scène
+            if (p.id == msg.playerId) continue;
             SpawnRemote(p.id, p.character, p.x, p.y, p.z, p.rotY);
         }
     }
@@ -66,7 +61,6 @@ public class RemotePlayerManager : MonoBehaviour
         if (!_spawned.TryGetValue(msg.id, out var go)) return;
         Destroy(go);
         _spawned.Remove(msg.id);
-        _rigidbodies.Remove(msg.id);
         _targetPos.Remove(msg.id);
         _targetRotY.Remove(msg.id);
     }
@@ -76,11 +70,19 @@ public class RemotePlayerManager : MonoBehaviour
         foreach (var kvp in _spawned)
         {
             if (!_targetPos.TryGetValue(kvp.Key, out var tPos)) continue;
-            if (!_rigidbodies.TryGetValue(kvp.Key, out var rb) || rb == null) continue;
-            rb.MovePosition(Vector3.Lerp(rb.position, tPos, Time.fixedDeltaTime * 12f));
+            // Collider statique : on bouge via transform pour ne pas faire entrer le Rigidbody
+            // dans la boucle physique (il a été détruit). Physics.SyncTransforms() assure
+            // que le CapsuleCollider suit immédiatement.
+            kvp.Value.transform.position = Vector3.Lerp(
+                kvp.Value.transform.position, tPos, Time.fixedDeltaTime * 12f);
             if (_targetRotY.TryGetValue(kvp.Key, out var tRot))
-                rb.MoveRotation(Quaternion.Lerp(rb.rotation, Quaternion.Euler(0f, tRot, 0f), Time.fixedDeltaTime * 12f));
+            {
+                var e = kvp.Value.transform.eulerAngles;
+                e.y = Mathf.LerpAngle(e.y, tRot, Time.fixedDeltaTime * 12f);
+                kvp.Value.transform.eulerAngles = e;
+            }
         }
+        Physics.SyncTransforms();
     }
 
     void HandleState(StateMessage msg)
@@ -110,15 +112,12 @@ public class RemotePlayerManager : MonoBehaviour
         if (controller != null)
             controller.enabled = false;
 
-        // Rigidbody kinematic : bloque le joueur local physiquement
+        // Supprime le Rigidbody : le CapsuleCollider devient un collider statique.
+        // Un collider statique bloque TOUJOURS un Rigidbody.MovePosition() — comme un mur.
         var rb = go.GetComponent<Rigidbody>();
-        if (rb == null) rb = go.AddComponent<Rigidbody>();
-        rb.isKinematic = true;
-        rb.interpolation = RigidbodyInterpolation.Interpolate;
-        // ContinuousSpeculative : seul mode compatible kinematic↔dynamic dans Unity 6
-        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+        if (rb != null)
+            Destroy(rb);
 
-        _rigidbodies[id] = rb;
         _spawned[id] = go;
     }
 
@@ -129,7 +128,6 @@ public class RemotePlayerManager : MonoBehaviour
                 if (entry.Name == characterName && entry.Prefab != null)
                     return entry.Prefab;
 
-        // fallback : premier prefab disponible
         foreach (var entry in CharacterPrefabs)
             if (entry.Prefab != null) return entry.Prefab;
 
