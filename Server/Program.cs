@@ -83,7 +83,10 @@ class GameServer
                     udpEndpoints.Remove(client.Id);
                     worldState.Players.Remove(client.Id);
                     if (clients.Count == 0)
+                    {
+                        worldState.Bonuses.Clear();
                         InitBonuses();
+                    }
                 }
                 Console.WriteLine($"[-] {client.Id} déconnecté  ({clients.Count} joueurs)");
                 Broadcast($"{{\"type\":\"PLAYER_LEFT\",\"id\":\"{client.Id}\"}}", exclude: null);
