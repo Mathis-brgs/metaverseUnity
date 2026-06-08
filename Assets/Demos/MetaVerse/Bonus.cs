@@ -4,18 +4,32 @@ public class Bonus : MonoBehaviour
 {
     public LayerMask CollisionLayers;
     public int Points = 1;
+    [Tooltip("ID unique du bonus — doit correspondre au serveur (ex: b0, b1, b2)")]
+    public string BonusId;
     bool isCollected;
+    NetworkManager _net;
 
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         IgnoreCarCollisions();
+        _net = FindFirstObjectByType<NetworkManager>();
+        if (_net != null)
+            _net.OnBonusTaken.AddListener(OnRemoteBonusTaken);
     }
 
-    // Update is called once per frame
-    void Update()
+    void OnDestroy()
     {
-        
+        if (_net != null)
+            _net.OnBonusTaken.RemoveListener(OnRemoteBonusTaken);
+    }
+
+    void OnRemoteBonusTaken(BonusTakenMessage msg)
+    {
+        if (!isCollected && msg.bonusId == BonusId)
+        {
+            isCollected = true;
+            Destroy(gameObject);
+        }
     }
 
     private bool ShouldHandleObject(Collider other) {
@@ -61,6 +75,8 @@ public class Bonus : MonoBehaviour
           controller.ApplyBonusSpeedBoost();
         }
         ScorePanelHUD.ShowPickupMessage(controller);
+        if (_net != null && !string.IsNullOrEmpty(BonusId))
+            _net.SendTake(BonusId);
       }
 
       if (!isCollected) { return; }
