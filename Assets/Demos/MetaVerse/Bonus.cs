@@ -12,6 +12,8 @@ public class Bonus : MonoBehaviour
     void Start()
     {
         IgnoreCarCollisions();
+        if (string.IsNullOrEmpty(BonusId))
+            BonusId = gameObject.name;
         _net = FindFirstObjectByType<NetworkManager>();
         if (_net != null)
             _net.OnBonusTaken.AddListener(OnRemoteBonusTaken);

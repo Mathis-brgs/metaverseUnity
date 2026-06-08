@@ -18,6 +18,8 @@ public class RemotePlayerManager : MonoBehaviour
 
     NetworkManager _net;
     readonly Dictionary<string, GameObject> _spawned = new Dictionary<string, GameObject>();
+    readonly Dictionary<string, Vector3> _targetPos = new Dictionary<string, Vector3>();
+    readonly Dictionary<string, float> _targetRotY = new Dictionary<string, float>();
 
     void Awake()
     {
@@ -63,6 +65,23 @@ public class RemotePlayerManager : MonoBehaviour
         if (!_spawned.TryGetValue(msg.id, out var go)) return;
         Destroy(go);
         _spawned.Remove(msg.id);
+        _targetPos.Remove(msg.id);
+        _targetRotY.Remove(msg.id);
+    }
+
+    void Update()
+    {
+        foreach (var kvp in _spawned)
+        {
+            if (!_targetPos.TryGetValue(kvp.Key, out var tPos)) continue;
+            kvp.Value.transform.position = Vector3.Lerp(kvp.Value.transform.position, tPos, Time.deltaTime * 12f);
+            if (_targetRotY.TryGetValue(kvp.Key, out var tRot))
+            {
+                var e = kvp.Value.transform.eulerAngles;
+                e.y = Mathf.LerpAngle(e.y, tRot, Time.deltaTime * 12f);
+                kvp.Value.transform.eulerAngles = e;
+            }
+        }
     }
 
     void HandleState(StateMessage msg)
@@ -71,9 +90,9 @@ public class RemotePlayerManager : MonoBehaviour
         foreach (var p in msg.players)
         {
             if (p.id == _net.MyPlayerId) continue;
-            if (!_spawned.TryGetValue(p.id, out var go)) continue;
-            go.transform.position = new Vector3(p.x, p.y, p.z);
-            go.transform.eulerAngles = new Vector3(0f, p.rotY, 0f);
+            if (!_spawned.ContainsKey(p.id)) continue;
+            _targetPos[p.id] = new Vector3(p.x, p.y, p.z);
+            _targetRotY[p.id] = p.rotY;
         }
     }
 
