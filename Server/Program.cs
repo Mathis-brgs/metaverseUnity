@@ -121,6 +121,8 @@ class GameServer
     void HandleJoin(ConnectedClient sender, JsonDocument doc)
     {
         string name = doc.RootElement.GetProperty("name").GetString() ?? sender.Id;
+        string character = doc.RootElement.TryGetProperty("character", out var cProp)
+            ? (cProp.GetString() ?? "barbarian") : "barbarian";
 
         lock (stateLock)
         {
@@ -132,14 +134,14 @@ class GameServer
                 return;
             }
 
-            worldState.Players[sender.Id] = new PlayerState { Id = sender.Id, Name = name };
+            worldState.Players[sender.Id] = new PlayerState { Id = sender.Id, Name = name, Character = character };
         }
 
         // Envoyer l'état complet au nouveau joueur
         sender.Send(BuildInitState(sender.Id));
 
         // Notifier les autres
-        Broadcast($"{{\"type\":\"PLAYER_JOIN\",\"id\":\"{sender.Id}\",\"name\":\"{name}\",\"x\":0,\"y\":0,\"z\":0}}", exclude: sender);
+        Broadcast($"{{\"type\":\"PLAYER_JOIN\",\"id\":\"{sender.Id}\",\"name\":\"{name}\",\"character\":\"{character}\",\"x\":0,\"y\":0,\"z\":0}}", exclude: sender);
         Console.WriteLine($"  → INIT_STATE envoyé à {sender.Id}, PLAYER_JOIN broadcast");
     }
 
@@ -168,7 +170,7 @@ class GameServer
         {
             var ic = System.Globalization.CultureInfo.InvariantCulture;
             var players = worldState.Players.Values
-                .Select(p => $"{{\"id\":\"{p.Id}\",\"name\":\"{p.Name}\",\"x\":{p.X.ToString(ic)},\"y\":{p.Y.ToString(ic)},\"z\":{p.Z.ToString(ic)},\"rotY\":{p.RotY.ToString(ic)},\"score\":{p.Score}}}");
+                .Select(p => $"{{\"id\":\"{p.Id}\",\"name\":\"{p.Name}\",\"character\":\"{p.Character ?? "barbarian"}\",\"x\":{p.X.ToString(ic)},\"y\":{p.Y.ToString(ic)},\"z\":{p.Z.ToString(ic)},\"rotY\":{p.RotY.ToString(ic)},\"score\":{p.Score}}}");
             var bonuses = worldState.Bonuses.Values
                 .Where(b => !b.IsCollected)
                 .Select(b => $"{{\"id\":\"{b.Id}\",\"x\":{b.X.ToString(ic)},\"y\":{b.Y.ToString(ic)},\"z\":{b.Z.ToString(ic)}}}");

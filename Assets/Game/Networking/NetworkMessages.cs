@@ -22,6 +22,7 @@ public class PlayerJoinMessage
     public string type;
     public string id;
     public string name;
+    public string character;
     public float x;
     public float y;
     public float z;
@@ -55,6 +56,7 @@ public class NetPlayerSnapshot
 {
     public string id;
     public string name;
+    public string character;
     public float x;
     public float y;
     public float z;

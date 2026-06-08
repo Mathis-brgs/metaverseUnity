@@ -1,12 +1,23 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Spawne le joueur local ET les joueurs distants avec le bon modèle.
+/// Assigner les prefabs par nom de perso dans CharacterPrefabs (Inspector).
+/// </summary>
 public class RemotePlayerManager : MonoBehaviour
 {
-    public GameObject RemotePlayerPrefab;
+    [System.Serializable]
+    public struct CharacterPrefabEntry
+    {
+        public string Name;
+        public GameObject Prefab;
+    }
+
+    public CharacterPrefabEntry[] CharacterPrefabs;
 
     NetworkManager _net;
-    readonly Dictionary<string, GameObject> _remotes = new Dictionary<string, GameObject>();
+    readonly Dictionary<string, GameObject> _spawned = new Dictionary<string, GameObject>();
 
     void Awake()
     {
@@ -37,21 +48,21 @@ public class RemotePlayerManager : MonoBehaviour
         if (msg.players == null) return;
         foreach (var p in msg.players)
         {
-            if (p.id == msg.playerId) continue;
-            SpawnRemote(p.id, p.x, p.y, p.z, p.rotY);
+            bool isLocal = p.id == msg.playerId;
+            SpawnPlayer(p.id, p.character, p.x, p.y, p.z, p.rotY, isLocal);
         }
     }
 
     void HandlePlayerJoin(PlayerJoinMessage msg)
     {
-        SpawnRemote(msg.id, msg.x, msg.y, msg.z, 0f);
+        SpawnPlayer(msg.id, msg.character, msg.x, msg.y, msg.z, 0f, false);
     }
 
     void HandlePlayerLeft(PlayerLeftMessage msg)
     {
-        if (!_remotes.TryGetValue(msg.id, out var go)) return;
+        if (!_spawned.TryGetValue(msg.id, out var go)) return;
         Destroy(go);
-        _remotes.Remove(msg.id);
+        _spawned.Remove(msg.id);
     }
 
     void HandleState(StateMessage msg)
@@ -60,22 +71,46 @@ public class RemotePlayerManager : MonoBehaviour
         foreach (var p in msg.players)
         {
             if (p.id == _net.MyPlayerId) continue;
-            if (!_remotes.TryGetValue(p.id, out var go)) continue;
+            if (!_spawned.TryGetValue(p.id, out var go)) continue;
             go.transform.position = new Vector3(p.x, p.y, p.z);
             go.transform.eulerAngles = new Vector3(0f, p.rotY, 0f);
         }
     }
 
-    void SpawnRemote(string id, float x, float y, float z, float rotY)
+    void SpawnPlayer(string id, string character, float x, float y, float z, float rotY, bool isLocal)
     {
-        if (_remotes.ContainsKey(id) || RemotePlayerPrefab == null) return;
-        var go = Instantiate(RemotePlayerPrefab, new Vector3(x, y, z), Quaternion.Euler(0f, rotY, 0f));
-        go.name = "RemotePlayer_" + id;
+        if (_spawned.ContainsKey(id)) return;
 
-        // Désactiver l'input local sur le joueur distant
+        GameObject prefab = FindPrefab(character);
+        if (prefab == null) return;
+
+        var go = Instantiate(prefab, new Vector3(x, y, z), Quaternion.Euler(0f, rotY, 0f));
+        go.name = isLocal ? "LocalPlayer" : "RemotePlayer_" + id;
+
         var controller = go.GetComponentInChildren<CharacterController>();
-        if (controller != null) controller.enabled = false;
+        if (controller != null)
+            controller.enabled = isLocal;
 
-        _remotes[id] = go;
+        if (isLocal)
+        {
+            _net.MoveSource = go.transform;
+            _net.SendMoveAutomatically = true;
+        }
+
+        _spawned[id] = go;
+    }
+
+    GameObject FindPrefab(string characterName)
+    {
+        if (!string.IsNullOrEmpty(characterName))
+            foreach (var entry in CharacterPrefabs)
+                if (entry.Name == characterName && entry.Prefab != null)
+                    return entry.Prefab;
+
+        // fallback : premier prefab disponible
+        foreach (var entry in CharacterPrefabs)
+            if (entry.Prefab != null) return entry.Prefab;
+
+        return null;
     }
 }

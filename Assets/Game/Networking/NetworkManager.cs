@@ -15,7 +15,8 @@ public class NetworkManager : MonoBehaviour
     [Header("Connexion")]
     public string ServerIP = "127.0.0.1";
     public string PlayerName = "Joueur";
-    public bool ConnectOnStart = true;
+    public string SelectedCharacter = "barbarian";
+    public bool ConnectOnStart = false;
 
     [Header("Ports (alignés avec le serveur A)")]
     [Tooltip("Port TCP — JOIN, INIT_STATE, TAKE, etc.")]
@@ -97,7 +98,7 @@ public class NetworkManager : MonoBehaviour
             return false;
         }
 
-        SendTcp(new JoinPayload { type = "JOIN", name = playerName });
+        SendTcp(new JoinPayload { type = "JOIN", name = playerName, character = SelectedCharacter });
         if (LogMessages)
             Debug.Log($"[NetworkManager] JOIN → TCP {ServerHost}:{TcpPort}");
         return true;
@@ -297,6 +298,7 @@ public class NetworkManager : MonoBehaviour
     {
         public string type;
         public string name;
+        public string character;
     }
 
     [Serializable]
