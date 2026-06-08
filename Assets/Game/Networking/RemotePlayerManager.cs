@@ -18,6 +18,7 @@ public class RemotePlayerManager : MonoBehaviour
 
     NetworkManager _net;
     readonly Dictionary<string, GameObject> _spawned = new Dictionary<string, GameObject>();
+    readonly Dictionary<string, Rigidbody> _rigidbodies = new Dictionary<string, Rigidbody>();
     readonly Dictionary<string, Vector3> _targetPos = new Dictionary<string, Vector3>();
     readonly Dictionary<string, float> _targetRotY = new Dictionary<string, float>();
 
@@ -65,6 +66,7 @@ public class RemotePlayerManager : MonoBehaviour
         if (!_spawned.TryGetValue(msg.id, out var go)) return;
         Destroy(go);
         _spawned.Remove(msg.id);
+        _rigidbodies.Remove(msg.id);
         _targetPos.Remove(msg.id);
         _targetRotY.Remove(msg.id);
     }
@@ -74,17 +76,10 @@ public class RemotePlayerManager : MonoBehaviour
         foreach (var kvp in _spawned)
         {
             if (!_targetPos.TryGetValue(kvp.Key, out var tPos)) continue;
-            var rb = kvp.Value.GetComponent<Rigidbody>();
-            if (rb != null)
-            {
-                rb.MovePosition(Vector3.Lerp(rb.position, tPos, Time.fixedDeltaTime * 12f));
-                if (_targetRotY.TryGetValue(kvp.Key, out var tRot))
-                    rb.MoveRotation(Quaternion.Lerp(rb.rotation, Quaternion.Euler(0f, tRot, 0f), Time.fixedDeltaTime * 12f));
-            }
-            else
-            {
-                kvp.Value.transform.position = Vector3.Lerp(kvp.Value.transform.position, tPos, Time.fixedDeltaTime * 12f);
-            }
+            if (!_rigidbodies.TryGetValue(kvp.Key, out var rb) || rb == null) continue;
+            rb.MovePosition(Vector3.Lerp(rb.position, tPos, Time.fixedDeltaTime * 12f));
+            if (_targetRotY.TryGetValue(kvp.Key, out var tRot))
+                rb.MoveRotation(Quaternion.Lerp(rb.rotation, Quaternion.Euler(0f, tRot, 0f), Time.fixedDeltaTime * 12f));
         }
     }
 
@@ -115,12 +110,15 @@ public class RemotePlayerManager : MonoBehaviour
         if (controller != null)
             controller.enabled = false;
 
-        // Rigidbody kinematic : se déplace via MovePosition et bloque le joueur local
+        // Rigidbody kinematic : bloque le joueur local physiquement
         var rb = go.GetComponent<Rigidbody>();
         if (rb == null) rb = go.AddComponent<Rigidbody>();
         rb.isKinematic = true;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
+        // ContinuousSpeculative : seul mode compatible kinematic↔dynamic dans Unity 6
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
+        _rigidbodies[id] = rb;
         _spawned[id] = go;
     }
 
