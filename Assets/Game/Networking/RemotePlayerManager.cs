@@ -14,6 +14,8 @@ public class RemotePlayerManager : MonoBehaviour
 
     NetworkManager _net;
     readonly Dictionary<string, GameObject> _spawned = new Dictionary<string, GameObject>();
+    readonly Dictionary<string, Rigidbody> _rigidbodies = new Dictionary<string, Rigidbody>();
+    readonly Dictionary<string, Animator> _animators = new Dictionary<string, Animator>();
     readonly Dictionary<string, Vector3> _targetPos = new Dictionary<string, Vector3>();
     readonly Dictionary<string, float> _targetRotY = new Dictionary<string, float>();
 
@@ -61,6 +63,8 @@ public class RemotePlayerManager : MonoBehaviour
         if (!_spawned.TryGetValue(msg.id, out var go)) return;
         Destroy(go);
         _spawned.Remove(msg.id);
+        _rigidbodies.Remove(msg.id);
+        _animators.Remove(msg.id);
         _targetPos.Remove(msg.id);
         _targetRotY.Remove(msg.id);
     }
@@ -70,19 +74,24 @@ public class RemotePlayerManager : MonoBehaviour
         foreach (var kvp in _spawned)
         {
             if (!_targetPos.TryGetValue(kvp.Key, out var tPos)) continue;
-            // Collider statique : on bouge via transform pour ne pas faire entrer le Rigidbody
-            // dans la boucle physique (il a été détruit). Physics.SyncTransforms() assure
-            // que le CapsuleCollider suit immédiatement.
-            kvp.Value.transform.position = Vector3.Lerp(
-                kvp.Value.transform.position, tPos, Time.fixedDeltaTime * 12f);
+            if (!_rigidbodies.TryGetValue(kvp.Key, out var rb) || rb == null) continue;
+
+            Vector3 prevPos = rb.position;
+            Vector3 nextPos = Vector3.Lerp(prevPos, tPos, Time.fixedDeltaTime * 12f);
+
+            // MovePosition comme le joueur local : respecte la physique et la collision
+            rb.MovePosition(nextPos);
+
             if (_targetRotY.TryGetValue(kvp.Key, out var tRot))
+                rb.MoveRotation(Quaternion.Euler(0f, Mathf.LerpAngle(rb.rotation.eulerAngles.y, tRot, Time.fixedDeltaTime * 12f), 0f));
+
+            // Anime selon la vitesse de déplacement
+            if (_animators.TryGetValue(kvp.Key, out var anim) && anim != null)
             {
-                var e = kvp.Value.transform.eulerAngles;
-                e.y = Mathf.LerpAngle(e.y, tRot, Time.fixedDeltaTime * 12f);
-                kvp.Value.transform.eulerAngles = e;
+                float speed = (nextPos - prevPos).magnitude / Time.fixedDeltaTime;
+                anim.SetFloat("Walk", Mathf.Clamp01(speed / 3f));
             }
         }
-        Physics.SyncTransforms();
     }
 
     void HandleState(StateMessage msg)
@@ -107,16 +116,18 @@ public class RemotePlayerManager : MonoBehaviour
         var go = Instantiate(prefab, new Vector3(x, y, z), Quaternion.Euler(0f, rotY, 0f));
         go.name = "RemotePlayer_" + id;
 
-        // Désactive le script de mouvement/input
+        // Désactive uniquement le script d'input — le Rigidbody reste non-kinematic
+        // pour que la collision fonctionne exactement comme entre deux joueurs locaux
         var controller = go.GetComponentInChildren<CharacterController>();
         if (controller != null)
             controller.enabled = false;
 
-        // Supprime le Rigidbody : le CapsuleCollider devient un collider statique.
-        // Un collider statique bloque TOUJOURS un Rigidbody.MovePosition() — comme un mur.
         var rb = go.GetComponent<Rigidbody>();
         if (rb != null)
-            Destroy(rb);
+            _rigidbodies[id] = rb;
+
+        var anim = go.GetComponentInChildren<Animator>();
+        if (anim != null) _animators[id] = anim;
 
         _spawned[id] = go;
     }
