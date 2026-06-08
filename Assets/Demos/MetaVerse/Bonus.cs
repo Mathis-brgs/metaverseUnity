@@ -16,13 +16,28 @@ public class Bonus : MonoBehaviour
             BonusId = gameObject.name;
         _net = FindFirstObjectByType<NetworkManager>();
         if (_net != null)
+        {
             _net.OnBonusTaken.AddListener(OnRemoteBonusTaken);
+            _net.OnInitState.AddListener(OnInitState);
+        }
     }
 
     void OnDestroy()
     {
         if (_net != null)
+        {
             _net.OnBonusTaken.RemoveListener(OnRemoteBonusTaken);
+            _net.OnInitState.RemoveListener(OnInitState);
+        }
+    }
+
+    void OnInitState(InitStateMessage msg)
+    {
+        if (isCollected || msg.bonuses == null) return;
+        foreach (var b in msg.bonuses)
+            if (b.id == BonusId) return; 
+        isCollected = true;
+        Destroy(gameObject);
     }
 
     void OnRemoteBonusTaken(BonusTakenMessage msg)
