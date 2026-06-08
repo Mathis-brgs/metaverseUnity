@@ -1,11 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Spawn, déplace et détruit les représentations des joueurs distants.
-/// À placer sur le même GameObject que NetworkManager.
-/// Assigner RemotePlayerPrefab dans l'Inspector (ex: barbarian.prefab).
-/// </summary>
 public class RemotePlayerManager : MonoBehaviour
 {
     public GameObject RemotePlayerPrefab;
@@ -76,6 +71,11 @@ public class RemotePlayerManager : MonoBehaviour
         if (_remotes.ContainsKey(id) || RemotePlayerPrefab == null) return;
         var go = Instantiate(RemotePlayerPrefab, new Vector3(x, y, z), Quaternion.Euler(0f, rotY, 0f));
         go.name = "RemotePlayer_" + id;
+
+        // Désactiver l'input local sur le joueur distant
+        var controller = go.GetComponentInChildren<CharacterController>();
+        if (controller != null) controller.enabled = false;
+
         _remotes[id] = go;
     }
 }
