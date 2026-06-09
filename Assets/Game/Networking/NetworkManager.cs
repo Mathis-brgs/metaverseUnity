@@ -24,10 +24,15 @@ public class NetworkManager : MonoBehaviour
     [Tooltip("Port UDP serveur — MOVE et réception STATE")]
     public int UdpServerPort = 25001;
 
-    [Header("Envoi MOVE (UDP)")]
+    [Header("Envoi MOVE (UDP, legacy)")]
     public bool SendMoveAutomatically;
     public Transform MoveSource;
     public float MoveSendInterval = 0.05f;
+
+    [Header("Envoi INPUT (UDP, serveur autoritaire)")]
+    [Tooltip("Recommandé avec le serveur Unity : envoie l'intention de déplacement, pas la position.")]
+    public bool SendInputAutomatically;
+    public CharacterController InputSource;
 
     [Header("Debug")]
     public bool LogMessages = true;
@@ -38,6 +43,9 @@ public class NetworkManager : MonoBehaviour
     public UnityEvent<PlayerLeftMessage> OnPlayerLeft;
     public UnityEvent<StateMessage> OnState;
     public UnityEvent<BonusTakenMessage> OnBonusTaken;
+    public UnityEvent<CarEnteredMessage> OnCarEntered;
+    public UnityEvent<CarExitedMessage> OnCarExited;
+    public UnityEvent<ErrorMessage> OnError;
 
     TCPClient _tcp;
     UdpClient _udp;
@@ -52,18 +60,23 @@ public class NetworkManager : MonoBehaviour
     void Awake()
     {
         _tcp = GetComponent<TCPClient>();
+        if (ServerMode.Active)
+            enabled = false;
     }
 
     void Start()
     {
+        if (ServerMode.Active) return;
         if (ConnectOnStart)
             Connect(PlayerName);
     }
 
     void Update()
     {
+        if (ServerMode.Active) return;
         ReceiveUdp();
         TrySendMoveTick();
+        TrySendInputTick();
     }
 
     void OnDisable()
@@ -99,6 +112,10 @@ public class NetworkManager : MonoBehaviour
         }
 
         SendTcp(new JoinPayload { type = "JOIN", name = playerName, character = SelectedCharacter });
+
+        // Connecté au serveur autoritaire : les voitures sont pilotées par le serveur (positions via STATE).
+        DrivableCar.ClientSuppressed = true;
+
         if (LogMessages)
             Debug.Log($"[NetworkManager] JOIN → TCP {ServerHost}:{TcpPort}");
         return true;
@@ -108,6 +125,7 @@ public class NetworkManager : MonoBehaviour
     {
         MyPlayerId = "";
         _tcpLineBuffer.Clear();
+        DrivableCar.ClientSuppressed = false;
         CloseUdp();
         if (_tcp != null)
             _tcp.Close();
@@ -127,6 +145,19 @@ public class NetworkManager : MonoBehaviour
         });
     }
 
+    public void SendInput(float ix, float iz, float rotY)
+    {
+        if (!HasSession || _udp == null) return;
+        SendUdp(new InputPayload
+        {
+            type = "INPUT",
+            id = MyPlayerId,
+            ix = ix,
+            iz = iz,
+            rotY = rotY
+        });
+    }
+
     public void SendTake(string bonusId)
     {
         if (!HasSession || !IsTcpConnected) return;
@@ -136,6 +167,18 @@ public class NetworkManager : MonoBehaviour
             playerId = MyPlayerId,
             bonusId = bonusId
         });
+    }
+
+    public void SendCarEnter(string carId)
+    {
+        if (!HasSession || !IsTcpConnected) return;
+        SendTcp(new CarEnterPayload { type = "CAR_ENTER", playerId = MyPlayerId, carId = carId ?? "" });
+    }
+
+    public void SendCarExit()
+    {
+        if (!HasSession || !IsTcpConnected) return;
+        SendTcp(new CarExitPayload { type = "CAR_EXIT", playerId = MyPlayerId });
     }
 
     string ServerHost => _tcp != null ? _tcp.DestinationIP : "127.0.0.1";
@@ -199,6 +242,34 @@ public class NetworkManager : MonoBehaviour
         SendMove(p.x, p.y, p.z, src.eulerAngles.y);
     }
 
+    float _inputTimer;
+
+    void TrySendInputTick()
+    {
+        if (!SendInputAutomatically || !HasSession || InputSource == null) return;
+        _inputTimer += Time.deltaTime;
+        if (_inputTimer < MoveSendInterval) return;
+        _inputTimer = 0f;
+
+        float ix, iz;
+        if (InputSource.IsDrivingCar)
+        {
+            // En voiture : ix = braquage, iz = accélération (entrée brute).
+            Vector2 raw = InputSource.GetMoveInput();
+            ix = raw.x;
+            iz = raw.y;
+        }
+        else
+        {
+            // À pied : direction monde relative caméra.
+            Vector3 dir = InputSource.GetDesiredWorldMove();
+            ix = dir.x;
+            iz = dir.z;
+        }
+
+        SendInput(ix, iz, InputSource.transform.eulerAngles.y);
+    }
+
     void OnTcpChunkReceived(string chunk)
     {
         _tcpLineBuffer.Append(chunk);
@@ -252,6 +323,15 @@ public class NetworkManager : MonoBehaviour
                 break;
             case "BONUS_TAKEN":
                 OnBonusTaken?.Invoke(JsonUtility.FromJson<BonusTakenMessage>(json));
+                break;
+            case "CAR_ENTERED":
+                OnCarEntered?.Invoke(JsonUtility.FromJson<CarEnteredMessage>(json));
+                break;
+            case "CAR_EXITED":
+                OnCarExited?.Invoke(JsonUtility.FromJson<CarExitedMessage>(json));
+                break;
+            case "ERROR":
+                OnError?.Invoke(JsonUtility.FromJson<ErrorMessage>(json));
                 break;
             default:
                 Debug.LogWarning("[NetworkManager] TCP type inconnu: " + header.type);
@@ -313,10 +393,35 @@ public class NetworkManager : MonoBehaviour
     }
 
     [Serializable]
+    struct InputPayload
+    {
+        public string type;
+        public string id;
+        public float ix;
+        public float iz;
+        public float rotY;
+    }
+
+    [Serializable]
     struct TakePayload
     {
         public string type;
         public string playerId;
         public string bonusId;
+    }
+
+    [Serializable]
+    struct CarEnterPayload
+    {
+        public string type;
+        public string playerId;
+        public string carId;
+    }
+
+    [Serializable]
+    struct CarExitPayload
+    {
+        public string type;
+        public string playerId;
     }
 }

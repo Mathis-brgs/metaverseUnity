@@ -12,7 +12,12 @@ public class FaceCamera : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        Vector3 dir = Camera.main.transform.position - transform.position;
+        if (ServerMode.Active) return;
+
+        Camera cam = Camera.main;
+        if (cam == null) return;
+
+        Vector3 dir = cam.transform.position - transform.position;
         dir = dir.ProjectOntoPlane(Vector3.up).normalized;
 
         transform.LookAt(transform.position - dir, Vector3.up);

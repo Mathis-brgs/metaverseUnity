@@ -24,6 +24,7 @@ public class ScorePanelHUD : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void CreateScorePanel()
     {
+      if (ServerMode.Active) return;
       if (FindFirstObjectByType<ScorePanelHUD>() != null) { return; }
 
       GameObject root = new GameObject("Score Panel HUD");

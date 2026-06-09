@@ -185,21 +185,50 @@ public class CharacterController : MonoBehaviour
       return PlayerAction != null ? PlayerAction.ReadValue<Vector2>() : Vector2.zero;
     }
 
+    /// <summary>
+    /// Direction de déplacement voulue, en espace monde, normalisée dans ~[-1,1]
+    /// (déjà relative à la caméra). Utilisée par le client pour envoyer INPUT au serveur autoritaire.
+    /// </summary>
+    public Vector3 GetDesiredWorldMove()
+    {
+      Vector3 dir = GetMovementDirection(GetMoveInput());
+      float maxSpeed = Mathf.Max(WalkSpeed, StrafeSpeed);
+      if (maxSpeed > 0.001f) {
+        dir /= maxSpeed;
+      }
+      return dir;
+    }
+
     public bool IsDrivingCar {
       get { return isDriving; }
+    }
+
+    NetworkManager _net;
+    NetworkManager Net {
+      get {
+        if (_net == null) _net = FindFirstObjectByType<NetworkManager>();
+        return _net;
+      }
     }
 
     void ToggleCar()
     {
       if (isDriving) {
         ExitCar();
+        if (Net != null && Net.HasSession) {
+          Net.SendCarExit();
+        }
         return;
       }
 
-      TryEnterNearestCar();
+      bool entered = TryEnterNearestCar();
+      if (entered && Net != null && Net.HasSession) {
+        // carId vide : le serveur choisit la voiture la plus proche du joueur.
+        Net.SendCarEnter("");
+      }
     }
 
-    void TryEnterNearestCar()
+    bool TryEnterNearestCar()
     {
       Collider[] hits = Physics.OverlapSphere(transform.position, CarEnterRadius, ~0, QueryTriggerInteraction.Collide);
       DrivableCar closest = null;
@@ -221,7 +250,10 @@ public class CharacterController : MonoBehaviour
 
       if (closest != null) {
         closest.Enter(this);
+        return true;
       }
+
+      return false;
     }
 
     DrivableCar TryMakeCarDrivable(Transform hitTransform)

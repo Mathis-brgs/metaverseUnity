@@ -49,6 +49,11 @@ public class Bonus : MonoBehaviour
         }
     }
 
+    /// <summary>ID stable du bonus (BonusId si renseigné, sinon le nom du GameObject).</summary>
+    public string ResolveBonusId() {
+       return string.IsNullOrEmpty(BonusId) ? gameObject.name : BonusId;
+    }
+
     private bool ShouldHandleObject(Collider other) {
        return (CollisionLayers.value & (1 << other.gameObject.layer)) > 0;
     }
@@ -72,6 +77,24 @@ public class Bonus : MonoBehaviour
       if (isCollected) { return; }
       if (!ShouldHandleObject(other)) { return; }
 
+      // Serveur Unity : autorité Physics. Le proxy du joueur entre dans le trigger → collecte.
+      if (ServerMode.Active) {
+        ServerPlayerProxy proxy = other.GetComponentInParent<ServerPlayerProxy>();
+        if (proxy != null && UnityGameServer.Instance != null) {
+          isCollected = true;
+          enabled = false;
+          UnityGameServer.Instance.CollectBonus(ResolveBonusId(), proxy.PlayerId);
+          Destroy(gameObject);
+        }
+        return;
+      }
+
+      // Client connecté : le serveur fait autorité, on attend BONUS_TAKEN (ne pas collecter localement).
+      if (_net != null && _net.HasSession) {
+        return;
+      }
+
+      // Hors-ligne : comportement local d'origine.
       CharacterScore cScore = other.GetComponentInParent<CharacterScore>();
       if (cScore == null) {
         cScore = other.GetComponentInChildren<CharacterScore>();
@@ -92,8 +115,6 @@ public class Bonus : MonoBehaviour
           controller.ApplyBonusSpeedBoost();
         }
         ScorePanelHUD.ShowPickupMessage(controller);
-        if (_net != null && !string.IsNullOrEmpty(BonusId))
-            _net.SendTake(BonusId);
       }
 
       if (!isCollected) { return; }

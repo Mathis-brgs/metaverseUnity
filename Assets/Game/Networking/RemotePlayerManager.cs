@@ -2,8 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Spawne le joueur local ET les joueurs distants avec le bon modèle.
-/// Assigner les prefabs par nom de perso dans CharacterPrefabs (Inspector).
+/// Côté client : instancie/synchronise les joueurs distants et applique les positions autoritaires
+/// envoyées par le serveur Unity (joueurs + voitures), avec interpolation.
+/// Réconcilie aussi doucement le joueur local si sa position diverge trop du serveur.
 /// </summary>
 public class RemotePlayerManager : MonoBehaviour
 {
@@ -16,10 +17,16 @@ public class RemotePlayerManager : MonoBehaviour
 
     public CharacterPrefabEntry[] CharacterPrefabs;
 
+    [Tooltip("Seuil (m) au-delà duquel le joueur local est resynchronisé sur la position serveur.")]
+    public float LocalReconcileThreshold = 2.5f;
+    public float InterpolationSpeed = 12f;
+
     NetworkManager _net;
     readonly Dictionary<string, GameObject> _spawned = new Dictionary<string, GameObject>();
     readonly Dictionary<string, Vector3> _targetPos = new Dictionary<string, Vector3>();
     readonly Dictionary<string, float> _targetRotY = new Dictionary<string, float>();
+    readonly Dictionary<string, bool> _inCar = new Dictionary<string, bool>();
+    readonly Dictionary<string, DrivableCar> _carsByName = new Dictionary<string, DrivableCar>();
 
     void Awake()
     {
@@ -47,11 +54,13 @@ public class RemotePlayerManager : MonoBehaviour
 
     void HandleInitState(InitStateMessage msg)
     {
-        if (msg.players == null) return;
-        foreach (var p in msg.players)
+        if (msg.players != null)
         {
-            if (p.id == msg.playerId) continue; // joueur local = Player1 déjà dans la scène
-            SpawnRemote(p.id, p.character, p.x, p.y, p.z, p.rotY);
+            foreach (var p in msg.players)
+            {
+                if (p.id == msg.playerId) continue; // joueur local déjà dans la scène
+                SpawnRemote(p.id, p.character, p.x, p.y, p.z, p.rotY);
+            }
         }
     }
 
@@ -67,18 +76,23 @@ public class RemotePlayerManager : MonoBehaviour
         _spawned.Remove(msg.id);
         _targetPos.Remove(msg.id);
         _targetRotY.Remove(msg.id);
+        _inCar.Remove(msg.id);
     }
 
     void Update()
     {
+        float t = Time.deltaTime * InterpolationSpeed;
         foreach (var kvp in _spawned)
         {
+            // Joueur en voiture : caché, pas d'interpolation au sol.
+            if (_inCar.TryGetValue(kvp.Key, out bool inCar) && inCar) continue;
             if (!_targetPos.TryGetValue(kvp.Key, out var tPos)) continue;
-            kvp.Value.transform.position = Vector3.Lerp(kvp.Value.transform.position, tPos, Time.deltaTime * 12f);
+
+            kvp.Value.transform.position = Vector3.Lerp(kvp.Value.transform.position, tPos, t);
             if (_targetRotY.TryGetValue(kvp.Key, out var tRot))
             {
                 var e = kvp.Value.transform.eulerAngles;
-                e.y = Mathf.LerpAngle(e.y, tRot, Time.deltaTime * 12f);
+                e.y = Mathf.LerpAngle(e.y, tRot, t);
                 kvp.Value.transform.eulerAngles = e;
             }
         }
@@ -86,14 +100,74 @@ public class RemotePlayerManager : MonoBehaviour
 
     void HandleState(StateMessage msg)
     {
-        if (msg.players == null) return;
-        foreach (var p in msg.players)
+        if (msg.players != null)
         {
-            if (p.id == _net.MyPlayerId) continue;
-            if (!_spawned.ContainsKey(p.id)) continue;
-            _targetPos[p.id] = new Vector3(p.x, p.y, p.z);
-            _targetRotY[p.id] = p.rotY;
+            foreach (var p in msg.players)
+            {
+                if (p.id == _net.MyPlayerId)
+                {
+                    ReconcileLocal(p);
+                    continue;
+                }
+
+                if (!_spawned.ContainsKey(p.id)) continue;
+
+                bool inCar = !string.IsNullOrEmpty(p.inCarId);
+                _inCar[p.id] = inCar;
+                SetRemoteVisible(p.id, !inCar);
+
+                if (!inCar)
+                {
+                    _targetPos[p.id] = new Vector3(p.x, p.y, p.z);
+                    _targetRotY[p.id] = p.rotY;
+                }
+            }
         }
+
+        if (msg.cars != null)
+        {
+            foreach (var c in msg.cars)
+            {
+                DrivableCar car = ResolveCar(c.id);
+                if (car != null)
+                    car.ApplyNetworkTransform(new Vector3(c.x, c.y, c.z), c.rotY);
+            }
+        }
+    }
+
+    void ReconcileLocal(NetPlayerPosition serverPos)
+    {
+        if (_net.InputSource == null) return;
+        if (_net.InputSource.IsDrivingCar) return; // en voiture : suivi via le siège
+
+        Transform local = _net.InputSource.transform;
+        Vector3 target = new Vector3(serverPos.x, serverPos.y, serverPos.z);
+        if ((local.position - target).sqrMagnitude > LocalReconcileThreshold * LocalReconcileThreshold)
+            local.position = target;
+    }
+
+    void SetRemoteVisible(string id, bool visible)
+    {
+        if (!_spawned.TryGetValue(id, out var go) || go == null) return;
+        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+            r.enabled = visible;
+    }
+
+    DrivableCar ResolveCar(string carId)
+    {
+        if (string.IsNullOrEmpty(carId)) return null;
+        if (_carsByName.TryGetValue(carId, out var cached) && cached != null)
+            return cached;
+
+        foreach (var car in FindObjectsByType<DrivableCar>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+        {
+            if (car.gameObject.name == carId)
+            {
+                _carsByName[carId] = car;
+                return car;
+            }
+        }
+        return null;
     }
 
     void SpawnRemote(string id, string character, float x, float y, float z, float rotY)
@@ -111,6 +185,8 @@ public class RemotePlayerManager : MonoBehaviour
             controller.enabled = false;
 
         _spawned[id] = go;
+        _targetPos[id] = new Vector3(x, y, z);
+        _targetRotY[id] = rotY;
     }
 
     GameObject FindPrefab(string characterName)
@@ -120,7 +196,6 @@ public class RemotePlayerManager : MonoBehaviour
                 if (entry.Name == characterName && entry.Prefab != null)
                     return entry.Prefab;
 
-        // fallback : premier prefab disponible
         foreach (var entry in CharacterPrefabs)
             if (entry.Prefab != null) return entry.Prefab;
 

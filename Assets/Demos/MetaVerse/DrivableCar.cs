@@ -23,6 +23,15 @@ public class DrivableCar : MonoBehaviour
     public Vector3 ExitOffset = new Vector3(1.8f, 0f, 0f);
     public Transform Seat;
 
+    // --- Réseau ---
+    /// <summary>Identifiant attribué par le serveur (ServerCarAuthority).</summary>
+    public string ServerId;
+    /// <summary>Vrai côté serveur quand un joueur réseau conduit cette voiture.</summary>
+    public bool IsNetworkDriven { get; private set; }
+    /// <summary>Vrai côté client connecté : la physique locale est suspendue, les positions viennent du STATE.</summary>
+    public static bool ClientSuppressed;
+    Vector2 _networkInput;
+
     CharacterController driver;
     Rigidbody rb;
     AudioSource hornSource;
@@ -102,14 +111,29 @@ public class DrivableCar : MonoBehaviour
       engineSource.loop = true;
       engineSource.spatialBlend = 1f;
       engineSource.volume = EngineVolume;
-      StartCoroutine(LoadEngineSound());
+      if (!ServerMode.Active)
+        StartCoroutine(LoadEngineSound());
 
       IgnoreBonusCollisions();
     }
 
     void FixedUpdate()
     {
+      // Client connecté : la voiture est pilotée par le serveur, on suspend la physique locale.
+      if (ClientSuppressed) {
+        if (rb != null && !rb.isKinematic) {
+          rb.isKinematic = true;
+        }
+        return;
+      }
+
       rb.angularVelocity = Vector3.zero;
+
+      // Serveur : voiture conduite par un joueur réseau.
+      if (IsNetworkDriven) {
+        DriveWithInput(_networkInput);
+        return;
+      }
 
       if (driver != null) {
         parked = false;
@@ -162,6 +186,37 @@ public class DrivableCar : MonoBehaviour
     public Vector3 GetExitPosition()
     {
       return transform.TransformPoint(ExitOffset);
+    }
+
+    // --- Pilotage réseau (serveur) ---
+
+    public void BeginNetworkDrive()
+    {
+      IsNetworkDriven = true;
+      parked = false;
+      driver = null;
+      if (rb != null) rb.isKinematic = false;
+    }
+
+    public void EndNetworkDrive()
+    {
+      IsNetworkDriven = false;
+      _networkInput = Vector2.zero;
+      StopNow();
+      parked = ParkAfterDriverExit;
+    }
+
+    public void SetNetworkInput(Vector2 input)
+    {
+      _networkInput = input;
+    }
+
+    // --- Application réseau (client) ---
+
+    public void ApplyNetworkTransform(Vector3 position, float rotY)
+    {
+      transform.position = position;
+      transform.rotation = Quaternion.Euler(0f, rotY, 0f);
     }
 
     public void StopNow()
@@ -254,6 +309,7 @@ public class DrivableCar : MonoBehaviour
 
     void SetEngineSoundPlaying(bool shouldPlay)
     {
+      if (ServerMode.Active) return;
       if (engineSource == null || engineSource.clip == null) { return; }
 
       engineSource.volume = EngineVolume;
@@ -355,6 +411,7 @@ public class DrivableCar : MonoBehaviour
 
     void Honk()
     {
+      if (ServerMode.Active) return;
       if (Time.time < nextHornTime || hornSource == null || hornSource.clip == null) { return; }
 
       hornSource.Play();

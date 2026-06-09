@@ -13,6 +13,7 @@ public class CityAmbienceSound : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void CreateAmbience()
     {
+      if (ServerMode.Active) return;
       if (FindFirstObjectByType<CityAmbienceSound>() != null) { return; }
 
       GameObject ambience = new GameObject("City Ambience Sound");
