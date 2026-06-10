@@ -1,0 +1,19 @@
+app = "metaverse-mmo-server"
+primary_region = "cdg"  # Paris
+
+[build]
+  dockerfile = "Dockerfile"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 25000
+
+  [[services.ports]]
+    port = 25000
+
+[[services]]
+  protocol = "udp"
+  internal_port = 25001
+
+  [[services.ports]]
+    port = 25001

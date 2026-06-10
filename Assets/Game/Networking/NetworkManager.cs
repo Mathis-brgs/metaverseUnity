@@ -14,6 +14,8 @@ public class NetworkManager : MonoBehaviour
 {
     [Header("Connexion")]
     public string ServerIP = "127.0.0.1";
+    [Tooltip("Laisser vide = utiliser ServerIP. Renseigner si tunnel UDP sur adresse différente (ex: playit.gg)")]
+    public string UdpServerIP = "";
     public string PlayerName = "Joueur";
     public string SelectedCharacter = "barbarian";
     public bool ConnectOnStart = false;
@@ -139,6 +141,7 @@ public class NetworkManager : MonoBehaviour
     }
 
     string ServerHost => _tcp != null ? _tcp.DestinationIP : "127.0.0.1";
+    string UdpHost    => string.IsNullOrEmpty(UdpServerIP) ? ServerHost : UdpServerIP;
 
     bool InitUdp()
     {
@@ -146,9 +149,9 @@ public class NetworkManager : MonoBehaviour
         try
         {
             _udp = new UdpClient(0);
-            _udpServerEp = new IPEndPoint(IPAddress.Parse(ServerHost), UdpServerPort);
+            _udpServerEp = new IPEndPoint(Dns.GetHostAddresses(UdpHost)[0], UdpServerPort);
             if (LogMessages)
-                Debug.Log($"[NetworkManager] UDP prêt → {ServerHost}:{UdpServerPort}");
+                Debug.Log($"[NetworkManager] UDP prêt → {UdpHost}:{UdpServerPort}");
             return true;
         }
         catch (Exception ex)

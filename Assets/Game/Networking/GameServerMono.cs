@@ -21,6 +21,9 @@ public class GameServerMono : MonoBehaviour
     public int   UdpPort       = 25001;
     public float StateInterval = 0.05f;
 
+    [Header("Mode")]
+    public bool startAsServer = false;  // cocher uniquement sur la machine hôte
+
     // ── Réseau ────────────────────────────────────────────────────────────────
     TcpListener  _tcpListener;
     UdpClient    _udpSocket;
@@ -50,6 +53,14 @@ public class GameServerMono : MonoBehaviour
     // ═══════════════════════════════════════════════════════════════════════════
     // Unity lifecycle
     // ═══════════════════════════════════════════════════════════════════════════
+
+    public static GameServerMono Instance { get; private set; }
+
+    void Awake()
+    {
+        Instance = this;
+        if (!startAsServer) enabled = false;
+    }
 
     void Start()
     {

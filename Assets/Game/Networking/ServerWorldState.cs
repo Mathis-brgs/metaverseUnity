@@ -7,8 +7,8 @@ public class SrvPlayerState
     public string Character;
     public float X, Y, Z, RotY;
     public int   Score;
-    public float Speed; 
-}x
+    public float Speed;
+}
 
 public class SrvBonusState
 {
