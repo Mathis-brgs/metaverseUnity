@@ -75,9 +75,9 @@ public class Bonus : MonoBehaviour
 
     void OnTriggerEnter(Collider other) {
       if (isCollected) { return; }
-      if (!ShouldHandleObject(other)) { return; }
 
       // Serveur Unity : autorité Physics. Le proxy du joueur entre dans le trigger → collecte.
+      // On bypasse ShouldHandleObject car le proxy a son propre layer (CharacterLayer).
       if (ServerMode.Active) {
         ServerPlayerProxy proxy = other.GetComponentInParent<ServerPlayerProxy>();
         if (proxy != null && UnityGameServer.Instance != null) {
@@ -88,6 +88,8 @@ public class Bonus : MonoBehaviour
         }
         return;
       }
+
+      if (!ShouldHandleObject(other)) { return; }
 
       // Client connecté : le serveur fait autorité, on attend BONUS_TAKEN (ne pas collecter localement).
       if (_net != null && _net.HasSession) {
