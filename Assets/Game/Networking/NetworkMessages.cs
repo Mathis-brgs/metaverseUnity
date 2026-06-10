@@ -81,4 +81,5 @@ public class NetPlayerPosition
     public float y;
     public float z;
     public float rotY;
+    public float speed; // calculé côté serveur Unity pour piloter les animations distantes
 }

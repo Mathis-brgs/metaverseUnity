@@ -17,9 +17,11 @@ public class RemotePlayerManager : MonoBehaviour
     public CharacterPrefabEntry[] CharacterPrefabs;
 
     NetworkManager _net;
-    readonly Dictionary<string, GameObject> _spawned = new Dictionary<string, GameObject>();
-    readonly Dictionary<string, Vector3> _targetPos = new Dictionary<string, Vector3>();
-    readonly Dictionary<string, float> _targetRotY = new Dictionary<string, float>();
+    readonly Dictionary<string, GameObject> _spawned    = new Dictionary<string, GameObject>();
+    readonly Dictionary<string, Animator>   _animators  = new Dictionary<string, Animator>();
+    readonly Dictionary<string, Vector3>    _targetPos  = new Dictionary<string, Vector3>();
+    readonly Dictionary<string, float>      _targetRotY = new Dictionary<string, float>();
+    readonly Dictionary<string, float>      _targetSpeed = new Dictionary<string, float>();
 
     void Awake()
     {
@@ -65,8 +67,10 @@ public class RemotePlayerManager : MonoBehaviour
         if (!_spawned.TryGetValue(msg.id, out var go)) return;
         Destroy(go);
         _spawned.Remove(msg.id);
+        _animators.Remove(msg.id);
         _targetPos.Remove(msg.id);
         _targetRotY.Remove(msg.id);
+        _targetSpeed.Remove(msg.id);
     }
 
     void Update()
@@ -74,12 +78,21 @@ public class RemotePlayerManager : MonoBehaviour
         foreach (var kvp in _spawned)
         {
             if (!_targetPos.TryGetValue(kvp.Key, out var tPos)) continue;
-            kvp.Value.transform.position = Vector3.Lerp(kvp.Value.transform.position, tPos, Time.deltaTime * 12f);
+            kvp.Value.transform.position = Vector3.Lerp(
+                kvp.Value.transform.position, tPos, Time.deltaTime * 12f);
+
             if (_targetRotY.TryGetValue(kvp.Key, out var tRot))
             {
                 var e = kvp.Value.transform.eulerAngles;
                 e.y = Mathf.LerpAngle(e.y, tRot, Time.deltaTime * 12f);
                 kvp.Value.transform.eulerAngles = e;
+            }
+
+            // Animation : vitesse calculée côté serveur Unity
+            if (_animators.TryGetValue(kvp.Key, out var anim) && anim != null)
+            {
+                float speed = _targetSpeed.TryGetValue(kvp.Key, out var s) ? s : 0f;
+                anim.SetFloat("Walk", Mathf.Clamp01(speed / 3f));
             }
         }
     }
@@ -91,8 +104,9 @@ public class RemotePlayerManager : MonoBehaviour
         {
             if (p.id == _net.MyPlayerId) continue;
             if (!_spawned.ContainsKey(p.id)) continue;
-            _targetPos[p.id] = new Vector3(p.x, p.y, p.z);
-            _targetRotY[p.id] = p.rotY;
+            _targetPos[p.id]   = new Vector3(p.x, p.y, p.z);
+            _targetRotY[p.id]  = p.rotY;
+            _targetSpeed[p.id] = p.speed;
         }
     }
 
@@ -109,6 +123,9 @@ public class RemotePlayerManager : MonoBehaviour
         var controller = go.GetComponentInChildren<CharacterController>();
         if (controller != null)
             controller.enabled = false;
+
+        var anim = go.GetComponentInChildren<Animator>();
+        if (anim != null) _animators[id] = anim;
 
         _spawned[id] = go;
     }
