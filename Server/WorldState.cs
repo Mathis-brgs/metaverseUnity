@@ -6,6 +6,7 @@ public class PlayerState
 {
     public string Id;
     public string Name;
+    public string Character;
     public float X;
     public float Y;
     public float Z;

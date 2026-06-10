@@ -170,7 +170,10 @@ public class ScorePanelHUD : MonoBehaviour
     {
       if (pickupMessageText == null || player == null) { return; }
 
-      pickupMessageText.text = GetPlayerDisplayName(player.Player) + " a ramassé un cube";
+      string name = (networkManager != null && networkManager.HasSession)
+          ? networkManager.PlayerName
+          : GetPlayerDisplayName(player.Player);
+      pickupMessageText.text = name + " a ramassé un cube";
       pickupMessageText.enabled = true;
       pickupMessageUntil = Time.time + PickupMessageDuration;
     }

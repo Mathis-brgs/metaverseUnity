@@ -144,6 +144,7 @@ public class ExtraBonusCubes : MonoBehaviour
       Bonus bonus = bonusObject.AddComponent<Bonus>();
       bonus.CollisionLayers = collisionLayers;
       bonus.Points = points;
+      bonus.BonusId = "extra_" + index;
 
       GameObject cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
       cube.name = "Cube";

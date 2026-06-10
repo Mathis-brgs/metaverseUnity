@@ -27,12 +27,14 @@ class GameServer
         InitBonuses();
     }
 
-    // Positions des bonus hardcodées — à synchroniser avec la scène Unity de C
     void InitBonuses()
     {
         worldState.AddOrUpdateBonus("b0",  2.0f, 0.5f, -1.0f);
         worldState.AddOrUpdateBonus("b1", -3.0f, 0.5f,  4.0f);
         worldState.AddOrUpdateBonus("b2",  5.0f, 0.5f,  2.0f);
+        // Extra bonus générés côté client (seed 12345) — positions non critiques serveur
+        for (int i = 1; i <= 8; i++)
+            worldState.AddOrUpdateBonus("extra_" + i, 0f, 0f, 0f);
     }
 
     public void Start()
@@ -80,6 +82,11 @@ class GameServer
                 {
                     udpEndpoints.Remove(client.Id);
                     worldState.Players.Remove(client.Id);
+                    if (clients.Count == 0)
+                    {
+                        worldState.Bonuses.Clear();
+                        InitBonuses();
+                    }
                 }
                 Console.WriteLine($"[-] {client.Id} déconnecté  ({clients.Count} joueurs)");
                 Broadcast($"{{\"type\":\"PLAYER_LEFT\",\"id\":\"{client.Id}\"}}", exclude: null);
@@ -113,32 +120,28 @@ class GameServer
 
     void HandleJoin(ConnectedClient sender, JsonDocument doc)
     {
-        // Anti double-JOIN
-        if (worldState.Players.ContainsKey(sender.Id)) return;
-
-        // Max 4 joueurs
-        if (worldState.Players.Count >= 4)
-        {
-            sender.Send("{\"type\":\"ERROR\",\"message\":\"Serveur plein\"}");
-            return;
-        }
-
         string name = doc.RootElement.GetProperty("name").GetString() ?? sender.Id;
+        string character = doc.RootElement.TryGetProperty("character", out var cProp)
+            ? (cProp.GetString() ?? "barbarian") : "barbarian";
 
         lock (stateLock)
         {
-            var player = worldState.Players.ContainsKey(sender.Id)
-                ? worldState.Players[sender.Id]
-                : new PlayerState { Id = sender.Id, Name = name };
-            player.Name = name;
-            worldState.Players[sender.Id] = player;
+            if (worldState.Players.ContainsKey(sender.Id)) return;
+
+            if (worldState.Players.Count >= 4)
+            {
+                sender.Send("{\"type\":\"ERROR\",\"message\":\"Serveur plein\"}");
+                return;
+            }
+
+            worldState.Players[sender.Id] = new PlayerState { Id = sender.Id, Name = name, Character = character };
         }
 
         // Envoyer l'état complet au nouveau joueur
         sender.Send(BuildInitState(sender.Id));
 
         // Notifier les autres
-        Broadcast($"{{\"type\":\"PLAYER_JOIN\",\"id\":\"{sender.Id}\",\"name\":\"{name}\",\"x\":0,\"y\":0,\"z\":0}}", exclude: sender);
+        Broadcast($"{{\"type\":\"PLAYER_JOIN\",\"id\":\"{sender.Id}\",\"name\":\"{name}\",\"character\":\"{character}\",\"x\":0,\"y\":0,\"z\":0}}", exclude: sender);
         Console.WriteLine($"  → INIT_STATE envoyé à {sender.Id}, PLAYER_JOIN broadcast");
     }
 
@@ -167,7 +170,7 @@ class GameServer
         {
             var ic = System.Globalization.CultureInfo.InvariantCulture;
             var players = worldState.Players.Values
-                .Select(p => $"{{\"id\":\"{p.Id}\",\"name\":\"{p.Name}\",\"x\":{p.X.ToString(ic)},\"y\":{p.Y.ToString(ic)},\"z\":{p.Z.ToString(ic)},\"rotY\":{p.RotY.ToString(ic)},\"score\":{p.Score}}}");
+                .Select(p => $"{{\"id\":\"{p.Id}\",\"name\":\"{p.Name}\",\"character\":\"{p.Character ?? "barbarian"}\",\"x\":{p.X.ToString(ic)},\"y\":{p.Y.ToString(ic)},\"z\":{p.Z.ToString(ic)},\"rotY\":{p.RotY.ToString(ic)},\"score\":{p.Score}}}");
             var bonuses = worldState.Bonuses.Values
                 .Where(b => !b.IsCollected)
                 .Select(b => $"{{\"id\":\"{b.Id}\",\"x\":{b.X.ToString(ic)},\"y\":{b.Y.ToString(ic)},\"z\":{b.Z.ToString(ic)}}}");
@@ -261,6 +264,7 @@ class ConnectedClient
     TcpClient tcp;
     StreamReader reader;
     StreamWriter writer;
+    bool _disconnected = false;
 
     public ConnectedClient(TcpClient tcp, string id)
     {
@@ -270,17 +274,22 @@ class ConnectedClient
         writer = new StreamWriter(tcp.GetStream()) { AutoFlush = true };
     }
 
-    public bool IsConnected => tcp.Connected;
+    public bool IsConnected => !_disconnected && tcp.Connected;
 
     public string? ReadLine()
     {
-        if (tcp.Available == 0) return null;
-        return reader.ReadLine();
+        try
+        {
+            if (!tcp.Client.Poll(0, System.Net.Sockets.SelectMode.SelectRead)) return null;
+            if (tcp.Available == 0) { _disconnected = true; return null; }
+            return reader.ReadLine();
+        }
+        catch { _disconnected = true; return null; }
     }
 
     public void Send(string message)
     {
         try { writer.WriteLine(message); }
-        catch { }
+        catch { _disconnected = true; }
     }
 }
