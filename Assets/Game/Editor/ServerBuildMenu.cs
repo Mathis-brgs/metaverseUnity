@@ -48,8 +48,8 @@ public static class ServerBuildMenu
         string folder = EditorUtility.SaveFolderPanel("Dossier de sortie du serveur dédié", "", "MetaverseServer");
         if (string.IsNullOrEmpty(folder)) return;
 
-        BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
-        string exeName = "MetaverseServer" + ExecutableExtension(target);
+        BuildTarget target = BuildTarget.StandaloneLinux64;
+        string exeName = "MetaverseServer";
 
         var previousSubtarget = EditorUserBuildSettings.standaloneBuildSubtarget;
         EditorUserBuildSettings.standaloneBuildSubtarget = StandaloneBuildSubtarget.Server;
