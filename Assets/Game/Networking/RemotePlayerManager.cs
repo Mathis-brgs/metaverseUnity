@@ -177,7 +177,7 @@ public class RemotePlayerManager : MonoBehaviour
                     {
                         float walkAmount = Mathf.Clamp01(Vector3.Distance(prev, newPos) / (StateInterval * WalkSpeedRef));
                         if (_animators.TryGetValue(p.id, out var anim) && anim != null)
-                            anim.SetFloat("Walk", walkAmount);
+                            anim.SetFloat("Walk", Mathf.Lerp(anim.GetFloat("Walk"), walkAmount, 0.25f));
                     }
                     _prevStatePos[p.id] = newPos;
                     _targetPos[p.id] = newPos;

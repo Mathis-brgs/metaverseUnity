@@ -401,8 +401,6 @@ public class UnityGameServer : MonoBehaviour
         var players = new List<NetPlayerPosition>();
         foreach (var p in World.Players.Values)
         {
-            // On n'envoie la position que si on a déjà reçu un MOVE/INPUT (position réelle, pas (0,0,0) par défaut)
-            if (!_udpEndpoints.ContainsKey(p.Id)) continue;
             players.Add(new NetPlayerPosition
             {
                 id = p.Id, x = p.X, y = p.Y, z = p.Z, rotY = p.RotY, inCarId = p.InCarId ?? ""

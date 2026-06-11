@@ -21,6 +21,7 @@ public class ServerCarAuthority : MonoBehaviour
         _server.CarEnterRequested += OnEnterRequested;
         _server.CarExitRequested += OnExitRequested;
         _server.PlayerInputReceived += OnPlayerInput;
+        _server.PlayerLeft += OnPlayerLeft;
     }
 
     void OnDestroy()
@@ -29,6 +30,12 @@ public class ServerCarAuthority : MonoBehaviour
         _server.CarEnterRequested -= OnEnterRequested;
         _server.CarExitRequested -= OnExitRequested;
         _server.PlayerInputReceived -= OnPlayerInput;
+        _server.PlayerLeft -= OnPlayerLeft;
+    }
+
+    void OnPlayerLeft(string playerId)
+    {
+        _driverInput.Remove(playerId);
     }
 
     void Start()
