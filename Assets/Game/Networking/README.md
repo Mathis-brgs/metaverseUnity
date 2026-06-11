@@ -16,7 +16,8 @@ Protocole : `planning/protocol.md`.
 2. `NetworkManager` :
    - `Server IP` = IP du serveur, `Tcp Port` = 25000, `Udp Server Port` = 25001
    - **`Send Input Automatically`** = true, **`Input Source`** = le `CharacterController` du joueur local
-   - (legacy) `Send Move Automatically` reste possible mais le serveur autoritaire attend `INPUT`
+   - **`Send Move Automatically`** = false (legacy : avec le serveur autoritaire, MOVE et INPUT
+     se battraient pour la position du proxy serveur)
 3. `RemotePlayerManager` : renseigner `CharacterPrefabs` (un prefab par personnage).
 
 ## Lancer le serveur
@@ -29,13 +30,13 @@ Voir `Assets/Game/Server/README.md`. En résumé :
 
 | Direction | Protocole | Handler |
 |-----------|-----------|---------|
-| `JOIN` | TCP → | `Connect()` |
+| `JOIN` | TCP → | `Connect()` (avec position de spawn) |
 | `INIT_STATE` | TCP ← | `OnInitState`, `MyPlayerId` |
 | `PLAYER_JOIN` / `PLAYER_LEFT` / `BONUS_TAKEN` | TCP ← | UnityEvents |
 | `CAR_ENTERED` / `CAR_EXITED` / `ERROR` | TCP ← | UnityEvents |
 | `INPUT` | UDP → | `SendInput()` / `Send Input Automatically` |
-| `MOVE` | UDP → | `SendMove()` (legacy) |
-| `STATE` | UDP ← | `OnState` (joueurs + voitures) |
+| `MOVE` | UDP → | `SendMove()` (legacy, à laisser désactivé avec le serveur autoritaire) |
+| `STATE` | TCP ← | `OnState` (joueurs + voitures) — diffusé en TCP (UDP sortant non SNATé sur Fly.io) |
 | `CAR_ENTER` / `CAR_EXIT` | TCP → | `SendCarEnter()` / `SendCarExit()` |
 
 ## Important

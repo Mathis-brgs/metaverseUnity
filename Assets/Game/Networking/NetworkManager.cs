@@ -21,7 +21,7 @@ public class NetworkManager : MonoBehaviour
     [Header("Ports (alignés avec le serveur A)")]
     [Tooltip("Port TCP — JOIN, INIT_STATE, TAKE, etc.")]
     public int TcpPort = 25000;
-    [Tooltip("Port UDP serveur — MOVE et réception STATE")]
+    [Tooltip("Port UDP serveur — envoi MOVE/INPUT (le STATE arrive en TCP)")]
     public int UdpServerPort = 25001;
 
     [Header("Envoi MOVE (UDP, legacy)")]
@@ -111,7 +111,21 @@ public class NetworkManager : MonoBehaviour
             return false;
         }
 
-        SendTcp(new JoinPayload { type = "JOIN", name = playerName, character = SelectedCharacter });
+        // Position de spawn réelle du joueur local, pour que le serveur et les autres clients
+        // ne le voient pas apparaître à l'origine (0,0,0).
+        Transform spawnSource = InputSource != null ? InputSource.transform
+            : (MoveSource != null ? MoveSource : transform);
+        Vector3 spawnPos = spawnSource.position;
+        SendTcp(new JoinPayload
+        {
+            type = "JOIN",
+            name = playerName,
+            character = SelectedCharacter,
+            x = spawnPos.x,
+            y = spawnPos.y,
+            z = spawnPos.z,
+            rotY = spawnSource.eulerAngles.y
+        });
 
         // Connecté au serveur autoritaire : les voitures sont pilotées par le serveur (positions via STATE).
         DrivableCar.ClientSuppressed = true;
@@ -382,6 +396,10 @@ public class NetworkManager : MonoBehaviour
         public string type;
         public string name;
         public string character;
+        public float x;
+        public float y;
+        public float z;
+        public float rotY;
     }
 
     [Serializable]

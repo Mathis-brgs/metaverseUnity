@@ -83,6 +83,10 @@ public class JoinMessage
     public string type;
     public string name;
     public string character;
+    public float x;
+    public float y;
+    public float z;
+    public float rotY;
 }
 
 [Serializable]

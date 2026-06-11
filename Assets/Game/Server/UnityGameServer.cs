@@ -225,11 +225,16 @@ public class UnityGameServer : MonoBehaviour
         sender.PlayerId = id;
         _clientById[id] = sender;
 
+        bool hasSpawnPos = IsValid(msg.x) && IsValid(msg.y) && IsValid(msg.z);
         var player = new PlayerState
         {
             Id = id,
             Name = string.IsNullOrEmpty(msg.name) ? id : msg.name,
             Character = string.IsNullOrEmpty(msg.character) ? "barbarian" : msg.character,
+            X = hasSpawnPos ? msg.x : 0f,
+            Y = hasSpawnPos ? msg.y : 0f,
+            Z = hasSpawnPos ? msg.z : 0f,
+            RotY = IsValid(msg.rotY) ? msg.rotY : 0f,
         };
         World.Players[id] = player;
 
@@ -243,7 +248,7 @@ public class UnityGameServer : MonoBehaviour
             id = id,
             name = player.Name,
             character = player.Character,
-            x = 0, y = 0, z = 0
+            x = player.X, y = player.Y, z = player.Z
         }, exclude: sender);
 
         PlayerJoined?.Invoke(player);

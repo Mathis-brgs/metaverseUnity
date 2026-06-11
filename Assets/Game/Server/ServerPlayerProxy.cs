@@ -45,10 +45,16 @@ public class ServerPlayerProxy : MonoBehaviour
         _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
         _rb.interpolation = RigidbodyInterpolation.None;
 
-        Vector3 spawn = new Vector3((_spawnIndex % 4) * 1.5f, 1f, (_spawnIndex / 4) * 1.5f);
+        // Spawn à la position annoncée dans le JOIN ; grille près de l'origine en secours (clients legacy).
+        Vector3 spawn;
+        if (Mathf.Abs(state.X) > 0.01f || Mathf.Abs(state.Z) > 0.01f)
+            spawn = new Vector3(state.X, state.Y, state.Z);
+        else
+            spawn = new Vector3((_spawnIndex % 4) * 1.5f, 1f, (_spawnIndex / 4) * 1.5f);
         _spawnIndex++;
         transform.position = spawn;
-        _targetRotY = 0f;
+        transform.eulerAngles = new Vector3(0f, state.RotY, 0f);
+        _targetRotY = state.RotY;
 
         WriteBack();
     }

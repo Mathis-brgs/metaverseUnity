@@ -3,3 +3,5 @@ MetaverseServer_Data/
 MMPORG Sample_BurstDebugInformation_DoNotShip/
 *.so
 *.so.0
+staging/
+metaverse-server-linux64.tar.gz

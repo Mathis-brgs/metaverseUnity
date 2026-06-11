@@ -36,3 +36,11 @@ Server/obj/
 # Fichiers de récupération Unity
 Assets/_Recovery/
 Assets/_Recovery.meta
+
+# Build serveur Unity dédié (Linux, généré localement)
+/MetaverseServer
+/MetaverseServer_Data/
+/UnityPlayer.so
+/libdecor*.so*
+/MMPORG Sample_BurstDebugInformation_DoNotShip/
+*.app/
