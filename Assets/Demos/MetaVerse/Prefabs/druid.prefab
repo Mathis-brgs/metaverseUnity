@@ -161,9 +161,32 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3e60b64da35df495cba7cc1cd0aa45fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Player: 1
+  Player: 0
   WalkSpeed: 3
-  RotateSpeed: 250
+  StrafeSpeed: 3
+  TurnSpeed: 720
+  UseCameraRelativeMovement: 1
+  BonusSpeedIncrement: 0.5
+  MaxBonusSpeedMultiplier: 2
+  BonusSpeedDuration: 5
+  CharacterLayers:
+    serializedVersion: 2
+    m_Bits: 64
+  AttackRange: 1.6
+  AttackCooldown: 0.8
+  AttackSlowMultiplier: 0.35
+  AttackSlowDuration: 1.25
+  AttackKnockback: 1.25
+  HitsBeforeKnockDown: 3
+  HitComboWindow: 2
+  HitAnimationDuration: 0.45
+  KnockDownDuration: 1.15
+  StandUpDuration: 1.1
+  Player1AttackKey: 1
+  Player2AttackKey: 1
+  Player1InteractKey: 19
+  Player2InteractKey: 19
+  CarEnterRadius: 2.4
 --- !u!54 &2784693839809718833
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -171,10 +194,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2468555049213913801}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}

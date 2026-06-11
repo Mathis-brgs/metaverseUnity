@@ -70,6 +70,7 @@ public class RemotePlayerManager : MonoBehaviour
 
     void HandlePlayerJoin(PlayerJoinMessage msg)
     {
+        if (msg.id == _net.MyPlayerId) return; // on ne se respawn pas soi-même
         SpawnRemote(msg.id, msg.character, msg.x, msg.y, msg.z, 0f);
     }
 
@@ -198,6 +199,19 @@ public class RemotePlayerManager : MonoBehaviour
         if (controller != null)
             controller.enabled = false;
 
+        // Rigidbody kinematic pour que le joueur distant ne tombe pas
+        var rb = go.GetComponent<Rigidbody>();
+        if (rb != null) { rb.isKinematic = true; rb.useGravity = false; }
+
+        // CapsuleCollider pour la collision
+        if (go.GetComponent<CapsuleCollider>() == null)
+        {
+            var col = go.AddComponent<CapsuleCollider>();
+            col.height = 1.8f;
+            col.radius = 0.3f;
+            col.center = new Vector3(0f, 0.9f, 0f);
+        }
+
         var anim = go.GetComponentInChildren<Animator>();
         if (anim != null) _animators[id] = anim;
 
@@ -206,6 +220,36 @@ public class RemotePlayerManager : MonoBehaviour
         _targetPos[id] = startPos;
         _targetRotY[id] = rotY;
         _prevStatePos[id] = startPos;
+    }
+
+    /// <summary>Swaps the local player's visual mesh. Returns the new skin GameObject (caller sets Anim).</summary>
+    public GameObject ApplyLocalCharacterSkin(string character, GameObject localPlayer)
+    {
+        if (localPlayer == null) return null;
+        GameObject prefab = FindPrefab(character);
+        if (prefab == null) return null;
+
+        // Désactive le mesh ET l'Animator de l'engineer
+        foreach (var r in localPlayer.GetComponentsInChildren<Renderer>(true))
+            r.enabled = false;
+        var oldAnim = localPlayer.GetComponent<Animator>();
+        if (oldAnim != null) oldAnim.enabled = false;
+
+        // Instancie le skin comme enfant de Player1
+        var skin = Instantiate(prefab, localPlayer.transform);
+        skin.transform.localPosition = Vector3.zero;
+        skin.transform.localRotation = Quaternion.identity;
+        skin.name = "LocalSkin_" + character;
+
+        // Désactive les composants de physique du skin
+        foreach (var mono in skin.GetComponentsInChildren<MonoBehaviour>(true))
+            if (mono.GetType().Name == "CharacterController") mono.enabled = false;
+        var rb = skin.GetComponent<Rigidbody>();
+        if (rb != null) Destroy(rb);
+        var col = skin.GetComponent<CapsuleCollider>();
+        if (col != null) Destroy(col);
+
+        return skin;
     }
 
     GameObject FindPrefab(string characterName)

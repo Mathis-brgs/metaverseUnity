@@ -34,7 +34,7 @@ public class CharacterController : MonoBehaviour
     public Key Player2InteractKey = Key.E;
     public float CarEnterRadius = 2.4f;
 
-    Animator Anim;
+    [HideInInspector] public Animator Anim;
     MetaverseInput inputs;
     InputAction PlayerAction;
     Rigidbody rb;

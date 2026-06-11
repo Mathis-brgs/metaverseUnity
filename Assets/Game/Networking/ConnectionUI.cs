@@ -166,6 +166,18 @@ public class ConnectionUI : MonoBehaviour
             _net.ServerIP = _ipInput.text.Trim();
         _net.PlayerName = playerName;
         _net.SelectedCharacter = _selectedCharacter;
+
+        // Swap local player skin if not engineer (engineer is already the scene default)
+        if (_selectedCharacter != "engineer" && _rpm != null && _net.InputSource != null)
+        {
+            var skin = _rpm.ApplyLocalCharacterSkin(_selectedCharacter, _net.InputSource.gameObject);
+            if (skin != null)
+            {
+                var newAnim = skin.GetComponentInChildren<Animator>();
+                if (newAnim != null) _net.InputSource.Anim = newAnim;
+            }
+        }
+
         _net.Connect(playerName);
 
         Destroy(gameObject);
