@@ -1,6 +1,34 @@
 # Déploiement serveur MetaVerse (VPS Hostinger)
 
-## 1. Build (Unity, sur Mac)
+## En une commande (recommandé)
+
+Prérequis Mac : Unity Hub + **Linux Build Support** + accès SSH au VPS (clé ou mot de passe).
+
+```bash
+# Option A — IP en argument
+./ServerLinux/deploy-hostinger.sh 187.124.45.244
+
+# Option B — config persistante
+cp ServerLinux/deploy.env.example ServerLinux/deploy.env
+# éditer deploy.env puis :
+./ServerLinux/deploy-hostinger.sh
+```
+
+Le script enchaîne : **build Unity** → **archive tar.gz** → **scp** → **systemctl restart metaverse**.
+
+Build déjà fait (sans relancer Unity) :
+
+```bash
+SKIP_BUILD=1 ./ServerLinux/deploy-hostinger.sh 187.124.45.244
+```
+
+Logs build local : `Logs/deploy-build.log`
+
+---
+
+## Étapes manuelles
+
+### 1. Build (Unity, sur Mac)
 
 1. **MetaVerse → Server → Add MetaVerse Scene To Build**
 2. **MetaVerse → Server → Build Dedicated Server** → sortie à la racine du projet (`MetaverseServer`)

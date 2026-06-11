@@ -5,3 +5,5 @@ MMPORG Sample_BurstDebugInformation_DoNotShip/
 *.so.0
 staging/
 metaverse-server-linux64.tar.gz
+deploy.env
+.env

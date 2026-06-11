@@ -71,7 +71,7 @@ public class ServerCarAuthority : MonoBehaviour
         return baseId + "_" + i;
     }
 
-    void OnPlayerInput(string playerId, float ix, float iz, float rotY)
+    void OnPlayerInput(string playerId, float ix, float iz, float rotY, float y)
     {
         // Pour un conducteur : ix = braquage, iz = accélération.
         _driverInput[playerId] = new Vector2(ix, iz);

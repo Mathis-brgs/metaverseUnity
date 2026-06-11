@@ -89,10 +89,10 @@ public class ServerBootstrap : MonoBehaviour
         }
     }
 
-    void OnPlayerInput(string playerId, float ix, float iz, float rotY)
+    void OnPlayerInput(string playerId, float ix, float iz, float rotY, float y)
     {
         if (_proxies.TryGetValue(playerId, out var proxy) && proxy != null)
-            proxy.SetInput(ix, iz, rotY);
+            proxy.SetInput(ix, iz, rotY, y);
     }
 
     // Client legacy (MOVE) : on place le proxy à la position annoncée pour que les triggers fonctionnent.

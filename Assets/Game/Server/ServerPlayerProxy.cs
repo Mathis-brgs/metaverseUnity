@@ -42,7 +42,8 @@ public class ServerPlayerProxy : MonoBehaviour
         }
 
         _rb = GetComponent<Rigidbody>();
-        _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+        _rb.useGravity = false;
+        _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ | RigidbodyConstraints.FreezePositionY;
         _rb.interpolation = RigidbodyInterpolation.None;
 
         // Spawn à la position annoncée dans le JOIN ; grille près de l'origine en secours (clients legacy).
@@ -59,7 +60,7 @@ public class ServerPlayerProxy : MonoBehaviour
         WriteBack();
     }
 
-    public void SetInput(float ix, float iz, float rotY)
+    public void SetInput(float ix, float iz, float rotY, float y)
     {
         // Mode INPUT : le serveur simule la physique (collisions) → Rigidbody dynamique.
         if (_rb != null && _rb.isKinematic) _rb.isKinematic = false;
@@ -68,6 +69,14 @@ public class ServerPlayerProxy : MonoBehaviour
         if (_inputDir.sqrMagnitude > 1f) _inputDir.Normalize();
         _targetRotY = rotY;
         _hasInput = true;
+
+        // Y rapporté par le client (suivi du sol local) — évite la lévitation des joueurs distants.
+        if (!float.IsNaN(y) && !float.IsInfinity(y) && string.IsNullOrEmpty(_state.InCarId))
+        {
+            Vector3 pos = _rb.position;
+            pos.y = y;
+            _rb.position = pos;
+        }
     }
 
     /// <summary>
@@ -107,7 +116,12 @@ public class ServerPlayerProxy : MonoBehaviour
             Vector3 movement = _inputDir * WalkSpeed * Time.fixedDeltaTime;
             _rb.MovePosition(_rb.position + movement);
 
-            Quaternion target = Quaternion.LookRotation(_inputDir.normalized, Vector3.up);
+            Quaternion target = Quaternion.Euler(0f, _targetRotY, 0f);
+            _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, target, TurnSpeed * Time.fixedDeltaTime));
+        }
+        else if (_hasInput)
+        {
+            Quaternion target = Quaternion.Euler(0f, _targetRotY, 0f);
             _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, target, TurnSpeed * Time.fixedDeltaTime));
         }
 

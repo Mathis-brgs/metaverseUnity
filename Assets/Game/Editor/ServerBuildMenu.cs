@@ -33,12 +33,7 @@ public static class ServerBuildMenu
     [MenuItem("MetaVerse/Server/Add MetaVerse Scene To Build", false, 20)]
     static void AddSceneToBuild()
     {
-        var scenes = new System.Collections.Generic.List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
-        foreach (var s in scenes)
-            if (s.path == MetaVerseScene) { Debug.Log("[ServerBuildMenu] Scène déjà dans le build."); return; }
-
-        scenes.Add(new EditorBuildSettingsScene(MetaVerseScene, true));
-        EditorBuildSettings.scenes = scenes.ToArray();
+        EnsureMetaVerseSceneInBuild();
         Debug.Log("[ServerBuildMenu] MetaVerse ajoutée au build.");
     }
 
@@ -47,6 +42,21 @@ public static class ServerBuildMenu
     {
         string folder = EditorUtility.SaveFolderPanel("Dossier de sortie du serveur dédié", "", "MetaverseServer");
         if (string.IsNullOrEmpty(folder)) return;
+        RunDedicatedServerBuild(folder);
+    }
+
+    /// <summary>Build headless pour CI / deploy-hostinger.sh (sortie à la racine du projet).</summary>
+    public static void BuildDedicatedServerHeadless()
+    {
+        string projectRoot = Path.GetDirectoryName(Application.dataPath);
+        var result = RunDedicatedServerBuild(projectRoot);
+        if (result != BuildResult.Succeeded)
+            EditorApplication.Exit(1);
+    }
+
+    static BuildResult RunDedicatedServerBuild(string outputFolder)
+    {
+        EnsureMetaVerseSceneInBuild();
 
         BuildTarget target = BuildTarget.StandaloneLinux64;
         string exeName = "MetaverseServer";
@@ -57,7 +67,7 @@ public static class ServerBuildMenu
         var options = new BuildPlayerOptions
         {
             scenes = new[] { MetaVerseScene },
-            locationPathName = Path.Combine(folder, exeName),
+            locationPathName = Path.Combine(outputFolder, exeName),
             target = target,
             subtarget = (int)StandaloneBuildSubtarget.Server,
             options = BuildOptions.None
@@ -71,6 +81,19 @@ public static class ServerBuildMenu
                       "Lancer avec : <exe> -batchmode -nographics");
         else
             Debug.LogError("[ServerBuildMenu] Échec du build serveur : " + report.summary.result);
+
+        return report.summary.result;
+    }
+
+    static void EnsureMetaVerseSceneInBuild()
+    {
+        var scenes = new System.Collections.Generic.List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+        foreach (var s in scenes)
+            if (s.path == MetaVerseScene) return;
+
+        scenes.Add(new EditorBuildSettingsScene(MetaVerseScene, true));
+        EditorBuildSettings.scenes = scenes.ToArray();
+        Debug.Log("[ServerBuildMenu] MetaVerse ajoutée au build.");
     }
 
     static string ExecutableExtension(BuildTarget target)

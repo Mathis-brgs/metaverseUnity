@@ -45,6 +45,7 @@ public class NetworkManager : MonoBehaviour
     public UnityEvent<BonusTakenMessage> OnBonusTaken;
     public UnityEvent<CarEnteredMessage> OnCarEntered;
     public UnityEvent<CarExitedMessage> OnCarExited;
+    public UnityEvent<PlayerHitMessage> OnPlayerHit;
     public UnityEvent<ErrorMessage> OnError;
 
     TCPClient _tcp;
@@ -159,7 +160,7 @@ public class NetworkManager : MonoBehaviour
         });
     }
 
-    public void SendInput(float ix, float iz, float rotY)
+    public void SendInput(float ix, float iz, float rotY, float y)
     {
         if (!HasSession || _udp == null) return;
         SendUdp(new InputPayload
@@ -168,8 +169,15 @@ public class NetworkManager : MonoBehaviour
             id = MyPlayerId,
             ix = ix,
             iz = iz,
-            rotY = rotY
+            rotY = rotY,
+            y = y
         });
+    }
+
+    public void SendAttack(string targetId)
+    {
+        if (!HasSession || !IsTcpConnected || string.IsNullOrEmpty(targetId)) return;
+        SendTcp(new AttackPayload { type = "ATTACK", attackerId = MyPlayerId, targetId = targetId });
     }
 
     public void SendTake(string bonusId)
@@ -281,7 +289,7 @@ public class NetworkManager : MonoBehaviour
             iz = dir.z;
         }
 
-        SendInput(ix, iz, InputSource.transform.eulerAngles.y);
+        SendInput(ix, iz, InputSource.transform.eulerAngles.y, InputSource.transform.position.y);
     }
 
     void OnTcpChunkReceived(string chunk)
@@ -346,6 +354,9 @@ public class NetworkManager : MonoBehaviour
                 break;
             case "CAR_EXITED":
                 OnCarExited?.Invoke(JsonUtility.FromJson<CarExitedMessage>(json));
+                break;
+            case "PLAYER_HIT":
+                OnPlayerHit?.Invoke(JsonUtility.FromJson<PlayerHitMessage>(json));
                 break;
             case "ERROR":
                 OnError?.Invoke(JsonUtility.FromJson<ErrorMessage>(json));
@@ -421,6 +432,15 @@ public class NetworkManager : MonoBehaviour
         public float ix;
         public float iz;
         public float rotY;
+        public float y;
+    }
+
+    [Serializable]
+    struct AttackPayload
+    {
+        public string type;
+        public string attackerId;
+        public string targetId;
     }
 
     [Serializable]

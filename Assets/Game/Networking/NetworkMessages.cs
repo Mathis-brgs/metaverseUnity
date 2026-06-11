@@ -101,6 +101,24 @@ public class MoveMessage
 }
 
 [Serializable]
+public class PlayerHitMessage
+{
+    public string type;
+    public string attackerId;
+    public string targetId;
+    public float attackerX;
+    public float attackerZ;
+}
+
+[Serializable]
+public class AttackMessage
+{
+    public string type;
+    public string attackerId;
+    public string targetId;
+}
+
+[Serializable]
 public class InputMessage
 {
     public string type;
@@ -108,6 +126,7 @@ public class InputMessage
     public float ix;
     public float iz;
     public float rotY;
+    public float y;
 }
 
 [Serializable]

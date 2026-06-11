@@ -34,10 +34,12 @@ Voir `Assets/Game/Server/README.md`. En résumé :
 | `INIT_STATE` | TCP ← | `OnInitState`, `MyPlayerId` |
 | `PLAYER_JOIN` / `PLAYER_LEFT` / `BONUS_TAKEN` | TCP ← | UnityEvents |
 | `CAR_ENTERED` / `CAR_EXITED` / `ERROR` | TCP ← | UnityEvents |
-| `INPUT` | UDP → | `SendInput()` / `Send Input Automatically` |
+| `PLAYER_HIT` | TCP ← | `OnPlayerHit` (combat réseau) |
+| `INPUT` | UDP → | `SendInput()` — inclut `y` (hauteur sol) |
 | `MOVE` | UDP → | `SendMove()` (legacy, à laisser désactivé avec le serveur autoritaire) |
 | `STATE` | TCP ← | `OnState` (joueurs + voitures) — diffusé en TCP (UDP sortant non SNATé sur Fly.io) |
 | `CAR_ENTER` / `CAR_EXIT` | TCP → | `SendCarEnter()` / `SendCarExit()` |
+| `ATTACK` | TCP → | `SendAttack()` — cible validée côté serveur |
 
 ## Important
 

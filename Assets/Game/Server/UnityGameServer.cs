@@ -28,7 +28,7 @@ public class UnityGameServer : MonoBehaviour
     // Callbacks pour les autorités de scène (proxies joueurs, voitures, bonus).
     public event Action<PlayerState> PlayerJoined;
     public event Action<string> PlayerLeft;
-    public event Action<string, float, float, float> PlayerInputReceived; // id, ix, iz, rotY
+    public event Action<string, float, float, float, float> PlayerInputReceived; // id, ix, iz, rotY, y
     public event Action<string, float, float, float, float> PlayerTeleport; // id, x, y, z, rotY (MOVE legacy)
     public event Action<string, string> CarEnterRequested; // playerId, carId
     public event Action<string> CarExitRequested;          // playerId
@@ -204,6 +204,7 @@ public class UnityGameServer : MonoBehaviour
             case "TAKE":      HandleTakeLegacy(SafeParse<TakeMessage>(json)); break;
             case "CAR_ENTER": HandleCarEnter(SafeParse<CarEnterMessage>(json)); break;
             case "CAR_EXIT":  HandleCarExit(SafeParse<CarExitMessage>(json)); break;
+            case "ATTACK":    HandleAttack(SafeParse<AttackMessage>(json)); break;
             default:
                 if (LogMessages) Debug.LogWarning("[UnityGameServer] type TCP inconnu: " + header.type);
                 break;
@@ -329,7 +330,32 @@ public class UnityGameServer : MonoBehaviour
         if (!IsValid(msg.ix) || !IsValid(msg.iz) || !IsValid(msg.rotY)) return;
 
         _udpEndpoints[msg.id] = remote;
-        PlayerInputReceived?.Invoke(msg.id, Mathf.Clamp(msg.ix, -1f, 1f), Mathf.Clamp(msg.iz, -1f, 1f), msg.rotY);
+        float y = IsValid(msg.y) ? msg.y : float.NaN;
+        PlayerInputReceived?.Invoke(msg.id, Mathf.Clamp(msg.ix, -1f, 1f), Mathf.Clamp(msg.iz, -1f, 1f), msg.rotY, y);
+    }
+
+    void HandleAttack(AttackMessage msg)
+    {
+        if (msg == null || string.IsNullOrEmpty(msg.attackerId) || string.IsNullOrEmpty(msg.targetId)) return;
+        if (msg.attackerId == msg.targetId) return;
+        if (!World.Players.TryGetValue(msg.attackerId, out var attacker)) return;
+        if (!World.Players.TryGetValue(msg.targetId, out var target)) return;
+        if (!string.IsNullOrEmpty(attacker.InCarId) || !string.IsNullOrEmpty(target.InCarId)) return;
+
+        float dx = attacker.X - target.X;
+        float dz = attacker.Z - target.Z;
+        const float maxRange = 2.2f;
+        if (dx * dx + dz * dz > maxRange * maxRange) return;
+
+        Broadcast(new PlayerHitMessage
+        {
+            type = "PLAYER_HIT",
+            attackerId = msg.attackerId,
+            targetId = msg.targetId,
+            attackerX = attacker.X,
+            attackerZ = attacker.Z
+        });
+        if (LogMessages) Debug.Log($"[UnityGameServer] {msg.attackerId} frappe {msg.targetId}");
     }
 
     // ---------------- Autorité gameplay (appelée par la scène serveur) ----------------

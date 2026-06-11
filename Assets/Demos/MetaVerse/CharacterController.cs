@@ -216,8 +216,11 @@ public class CharacterController : MonoBehaviour
     void ToggleCar()
     {
       if (isDriving) {
-        ExitCar();
-        if (Net != null && Net.HasSession) Net.SendCarExit();
+        if (Net != null && Net.HasSession) {
+          Net.SendCarExit();
+        } else {
+          ExitCar();
+        }
         return;
       }
 
@@ -292,6 +295,11 @@ public class CharacterController : MonoBehaviour
       transform.localRotation = Quaternion.identity;
     }
 
+    public void ExitCarFromNetwork()
+    {
+      ExitCar();
+    }
+
     void ExitCar()
     {
       if (currentCar == null) { return; }
@@ -338,6 +346,16 @@ public class CharacterController : MonoBehaviour
 
       nextAttackTime = Time.time + AttackCooldown;
 
+      if (Net != null && Net.HasSession) {
+        string targetId = FindNetworkAttackTarget();
+        if (!string.IsNullOrEmpty(targetId)) {
+          Net.SendAttack(targetId);
+        }
+        if (attackFeedback != null) StopCoroutine(attackFeedback);
+        attackFeedback = StartCoroutine(PlayAttackFeedback(null));
+        return;
+      }
+
       CharacterController target = FindAttackTarget();
       if (target != null) {
         target.ReceiveHit(transform.position, AttackSlowDuration);
@@ -347,6 +365,13 @@ public class CharacterController : MonoBehaviour
         StopCoroutine(attackFeedback);
       }
       attackFeedback = StartCoroutine(PlayAttackFeedback(target));
+    }
+
+    string FindNetworkAttackTarget()
+    {
+      RemotePlayerManager rpm = FindFirstObjectByType<RemotePlayerManager>();
+      if (rpm == null) return null;
+      return rpm.FindClosestPlayerInRange(transform.position, AttackRange, Net.MyPlayerId);
     }
 
     CharacterController FindAttackTarget()
@@ -367,6 +392,11 @@ public class CharacterController : MonoBehaviour
       }
 
       return closest;
+    }
+
+    public void ReceiveNetworkHit(Vector3 attackerPosition)
+    {
+      ReceiveHit(attackerPosition, AttackSlowDuration);
     }
 
     void ReceiveHit(Vector3 attackerPosition, float duration)

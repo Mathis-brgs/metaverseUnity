@@ -48,6 +48,7 @@ public class RemotePlayerManager : MonoBehaviour
         _net.OnState.AddListener(HandleState);
         _net.OnCarEntered.AddListener(HandleCarEntered);
         _net.OnCarExited.AddListener(HandleCarExited);
+        _net.OnPlayerHit.AddListener(HandlePlayerHit);
     }
 
     void OnDisable()
@@ -59,6 +60,7 @@ public class RemotePlayerManager : MonoBehaviour
         _net.OnState.RemoveListener(HandleState);
         _net.OnCarEntered.RemoveListener(HandleCarEntered);
         _net.OnCarExited.RemoveListener(HandleCarExited);
+        _net.OnPlayerHit.RemoveListener(HandlePlayerHit);
     }
 
     void HandleInitState(InitStateMessage msg)
@@ -111,26 +113,82 @@ public class RemotePlayerManager : MonoBehaviour
 
     void HandleCarEntered(CarEnteredMessage msg)
     {
+        _driverByCar[msg.carId] = msg.driverId;
+
         if (msg.driverId == _net.MyPlayerId)
         {
-            // Confirmation serveur : on monte dans la voiture localement.
             DrivableCar car = ResolveCar(msg.carId);
             if (car != null && _net.InputSource != null)
                 car.Enter(_net.InputSource);
             return;
         }
-        _driverByCar[msg.carId] = msg.driverId;
         _inCar[msg.driverId] = true;
         SetRemoteVisible(msg.driverId, false);
     }
 
     void HandleCarExited(CarExitedMessage msg)
     {
-        if (!_driverByCar.TryGetValue(msg.carId, out string driverId)) return;
+        if (!_driverByCar.TryGetValue(msg.carId, out string driverId))
+            driverId = null;
         _driverByCar.Remove(msg.carId);
-        if (driverId == _net.MyPlayerId) return;
+
+        if (driverId == _net.MyPlayerId)
+        {
+            if (_net.InputSource != null && _net.InputSource.IsDrivingCar)
+                _net.InputSource.ExitCarFromNetwork();
+            return;
+        }
+
+        if (string.IsNullOrEmpty(driverId)) return;
         _inCar[driverId] = false;
         SetRemoteVisible(driverId, true);
+    }
+
+    void HandlePlayerHit(PlayerHitMessage msg)
+    {
+        if (msg == null) return;
+
+        Vector3 attackerPos = new Vector3(msg.attackerX, 0f, msg.attackerZ);
+
+        if (msg.targetId == _net.MyPlayerId)
+        {
+            if (_net.InputSource != null)
+                _net.InputSource.ReceiveNetworkHit(attackerPos);
+            return;
+        }
+
+        if (_spawned.TryGetValue(msg.targetId, out var go) && go != null)
+            PlayRemoteHitAnimation(msg.targetId);
+    }
+
+    void PlayRemoteHitAnimation(string playerId)
+    {
+        if (!_animators.TryGetValue(playerId, out var anim) || anim == null) return;
+        anim.SetFloat("Walk", 0f);
+        anim.CrossFade("Hit_A", 0.05f);
+    }
+
+    /// <summary>Retourne l'id du joueur distant le plus proche dans le rayon (pour ATTACK).</summary>
+    public string FindClosestPlayerInRange(Vector3 from, float range, string excludeId)
+    {
+        string bestId = null;
+        float bestDist = range * range;
+
+        foreach (var kvp in _spawned)
+        {
+            if (kvp.Key == excludeId) continue;
+            if (_inCar.TryGetValue(kvp.Key, out bool inCar) && inCar) continue;
+            if (kvp.Value == null) continue;
+
+            float d = (kvp.Value.transform.position - from).sqrMagnitude;
+            if (d < bestDist)
+            {
+                bestDist = d;
+                bestId = kvp.Key;
+            }
+        }
+
+        return bestId;
     }
 
     void Update()
@@ -200,11 +258,17 @@ public class RemotePlayerManager : MonoBehaviour
     void ReconcileLocal(NetPlayerPosition serverPos)
     {
         if (_net.InputSource == null) return;
-        if (_net.InputSource.IsDrivingCar) return; // en voiture : suivi via le siège
+        if (_net.InputSource.IsDrivingCar) return;
 
         Transform local = _net.InputSource.transform;
         Vector3 target = new Vector3(serverPos.x, serverPos.y, serverPos.z);
-        if ((local.position - target).sqrMagnitude > LocalReconcileThreshold * LocalReconcileThreshold)
+        Vector3 delta = local.position - target;
+
+        // Correction Y légère (évite la lévitation visible chez les autres).
+        if (Mathf.Abs(delta.y) > 0.15f)
+            local.position = new Vector3(local.position.x, target.y, local.position.z);
+
+        if (delta.sqrMagnitude > LocalReconcileThreshold * LocalReconcileThreshold)
             local.position = target;
     }
 

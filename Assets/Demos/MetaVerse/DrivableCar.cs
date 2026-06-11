@@ -127,14 +127,8 @@ public class DrivableCar : MonoBehaviour
 
     void FixedUpdate()
     {
-      // Client connecté : positions viennent du serveur via STATE.
+      // Client connecté : positions viennent du serveur via STATE (conducteur inclus).
       if (ClientSuppressed) {
-        if (driver != null) {
-          // Joueur local au volant : physique locale pour la réactivité.
-          rb.isKinematic = false;
-          DriveWithInput(driver.GetMoveInput());
-          return;
-        }
         if (rb != null && !rb.isKinematic) rb.isKinematic = true;
         if (sceneAnimation != null) sceneAnimation.enabled = false;
         if (_hasNetTarget && rb != null) {
