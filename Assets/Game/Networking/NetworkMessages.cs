@@ -140,6 +140,7 @@ public class NetPlayerSnapshot
     public float z;
     public float rotY;
     public int score;
+    public string inCarId;
 }
 
 [Serializable]

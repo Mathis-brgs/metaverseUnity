@@ -27,6 +27,7 @@ public class RemotePlayerManager : MonoBehaviour
     readonly Dictionary<string, float> _targetRotY = new Dictionary<string, float>();
     readonly Dictionary<string, bool> _inCar = new Dictionary<string, bool>();
     readonly Dictionary<string, DrivableCar> _carsByName = new Dictionary<string, DrivableCar>();
+    readonly Dictionary<string, string> _driverByCar = new Dictionary<string, string>();
     readonly Dictionary<string, Animator> _animators = new Dictionary<string, Animator>();
     readonly Dictionary<string, Vector3> _prevStatePos = new Dictionary<string, Vector3>();
     const float StateInterval = 0.05f; // 20 Hz — aligné avec le serveur
@@ -45,6 +46,8 @@ public class RemotePlayerManager : MonoBehaviour
         _net.OnPlayerJoin.AddListener(HandlePlayerJoin);
         _net.OnPlayerLeft.AddListener(HandlePlayerLeft);
         _net.OnState.AddListener(HandleState);
+        _net.OnCarEntered.AddListener(HandleCarEntered);
+        _net.OnCarExited.AddListener(HandleCarExited);
     }
 
     void OnDisable()
@@ -54,6 +57,8 @@ public class RemotePlayerManager : MonoBehaviour
         _net.OnPlayerJoin.RemoveListener(HandlePlayerJoin);
         _net.OnPlayerLeft.RemoveListener(HandlePlayerLeft);
         _net.OnState.RemoveListener(HandleState);
+        _net.OnCarEntered.RemoveListener(HandleCarEntered);
+        _net.OnCarExited.RemoveListener(HandleCarExited);
     }
 
     void HandleInitState(InitStateMessage msg)
@@ -62,8 +67,24 @@ public class RemotePlayerManager : MonoBehaviour
         {
             foreach (var p in msg.players)
             {
-                if (p.id == msg.playerId) continue; // joueur local déjà dans la scène
+                if (p.id == msg.playerId) continue;
                 SpawnRemote(p.id, p.character, p.x, p.y, p.z, p.rotY);
+                if (!string.IsNullOrEmpty(p.inCarId))
+                {
+                    _inCar[p.id] = true;
+                    _driverByCar[p.inCarId] = p.id;
+                    SetRemoteVisible(p.id, false);
+                }
+            }
+        }
+
+        if (msg.cars != null)
+        {
+            foreach (var c in msg.cars)
+            {
+                DrivableCar car = ResolveCar(c.id);
+                if (car != null)
+                    car.ApplyNetworkTransform(new Vector3(c.x, c.y, c.z), c.rotY);
             }
         }
     }
@@ -84,6 +105,25 @@ public class RemotePlayerManager : MonoBehaviour
         _inCar.Remove(msg.id);
         _animators.Remove(msg.id);
         _prevStatePos.Remove(msg.id);
+        foreach (var kvp in new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string,string>>(_driverByCar))
+            if (kvp.Value == msg.id) _driverByCar.Remove(kvp.Key);
+    }
+
+    void HandleCarEntered(CarEnteredMessage msg)
+    {
+        if (msg.driverId == _net.MyPlayerId) return;
+        _driverByCar[msg.carId] = msg.driverId;
+        _inCar[msg.driverId] = true;
+        SetRemoteVisible(msg.driverId, false);
+    }
+
+    void HandleCarExited(CarExitedMessage msg)
+    {
+        if (!_driverByCar.TryGetValue(msg.carId, out string driverId)) return;
+        _driverByCar.Remove(msg.carId);
+        if (driverId == _net.MyPlayerId) return;
+        _inCar[driverId] = false;
+        SetRemoteVisible(driverId, true);
     }
 
     void Update()

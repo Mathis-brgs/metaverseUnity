@@ -308,13 +308,10 @@ public class CharacterController : MonoBehaviour
 
     void SetCharacterVisible(bool visible)
     {
-      foreach (Renderer currentRenderer in renderers) {
-        currentRenderer.enabled = visible;
-      }
-
-      foreach (Collider currentCollider in colliders) {
-        currentCollider.enabled = visible;
-      }
+      foreach (var r in GetComponentsInChildren<Renderer>(true))
+        r.enabled = visible;
+      foreach (var c in GetComponentsInChildren<Collider>(true))
+        c.enabled = visible;
     }
 
     void TryAttack()

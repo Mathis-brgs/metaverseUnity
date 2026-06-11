@@ -4,7 +4,7 @@ public class DrivableCar : MonoBehaviour
 {
     public float DriveSpeed = 7f;
     public float ReverseSpeed = 3.5f;
-    public float TurnSpeed = 120f;
+    public float TurnSpeed = 180f;
     public bool AutoDriveWhenEmpty = false;
     public bool UseSceneAnimationWhenEmpty = true;
     public bool ParkAfterDriverExit = true;
@@ -30,7 +30,11 @@ public class DrivableCar : MonoBehaviour
     public bool IsNetworkDriven { get; private set; }
     /// <summary>Vrai côté client connecté : la physique locale est suspendue, les positions viennent du STATE.</summary>
     public static bool ClientSuppressed;
+    public float NetLerpSpeed = 20f;
     Vector2 _networkInput;
+    Vector3 _netTargetPos;
+    float _netTargetRotY;
+    bool _hasNetTarget;
 
     CharacterController driver;
     Rigidbody rb;
@@ -119,10 +123,19 @@ public class DrivableCar : MonoBehaviour
 
     void FixedUpdate()
     {
-      // Client connecté : la voiture est pilotée par le serveur, on suspend la physique locale.
+      // Client connecté : positions viennent du serveur via STATE.
       if (ClientSuppressed) {
-        if (rb != null && !rb.isKinematic) {
-          rb.isKinematic = true;
+        if (driver != null) {
+          // Joueur local au volant : physique locale pour la réactivité.
+          rb.isKinematic = false;
+          DriveWithInput(driver.GetMoveInput());
+          return;
+        }
+        if (rb != null && !rb.isKinematic) rb.isKinematic = true;
+        if (sceneAnimation != null) sceneAnimation.enabled = false;
+        if (_hasNetTarget && rb != null) {
+          rb.MovePosition(Vector3.Lerp(rb.position, _netTargetPos, Time.fixedDeltaTime * NetLerpSpeed));
+          rb.MoveRotation(Quaternion.Slerp(rb.rotation, Quaternion.Euler(0f, _netTargetRotY, 0f), Time.fixedDeltaTime * NetLerpSpeed));
         }
         return;
       }
@@ -196,6 +209,7 @@ public class DrivableCar : MonoBehaviour
       parked = false;
       driver = null;
       if (rb != null) rb.isKinematic = false;
+      if (sceneAnimation != null) sceneAnimation.enabled = false;
     }
 
     public void EndNetworkDrive()
@@ -215,8 +229,16 @@ public class DrivableCar : MonoBehaviour
 
     public void ApplyNetworkTransform(Vector3 position, float rotY)
     {
-      transform.position = position;
-      transform.rotation = Quaternion.Euler(0f, rotY, 0f);
+      _netTargetPos = position;
+      _netTargetRotY = rotY;
+      if (!_hasNetTarget)
+      {
+        // Premier appel : snap immédiat.
+        transform.position = position;
+        transform.rotation = Quaternion.Euler(0f, rotY, 0f);
+        if (rb != null) rb.isKinematic = true;
+      }
+      _hasNetTarget = true;
     }
 
     public void StopNow()
@@ -275,18 +297,14 @@ public class DrivableCar : MonoBehaviour
 
     void SetSceneAnimationPlaying(bool shouldPlay)
     {
-      if (!UseSceneAnimationWhenEmpty || sceneAnimation == null) { return; }
-
-      sceneAnimation.enabled = true;
-
-      if (shouldPlay) {
-        SetSceneAnimationSpeed(1f);
-        if (!sceneAnimationStarted) {
-          sceneAnimation.Play();
-          sceneAnimationStarted = true;
-        }
-      } else {
-        SetSceneAnimationSpeed(0f);
+      if (sceneAnimation == null) return;
+      bool wantPlay = shouldPlay && UseSceneAnimationWhenEmpty;
+      sceneAnimation.enabled = wantPlay;
+      if (!wantPlay) return;
+      SetSceneAnimationSpeed(1f);
+      if (!sceneAnimationStarted) {
+        sceneAnimation.Play();
+        sceneAnimationStarted = true;
       }
     }
 

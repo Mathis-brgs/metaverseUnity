@@ -368,7 +368,8 @@ public class UnityGameServer : MonoBehaviour
             players.Add(new NetPlayerSnapshot
             {
                 id = p.Id, name = p.Name, character = p.Character,
-                x = p.X, y = p.Y, z = p.Z, rotY = p.RotY, score = p.Score
+                x = p.X, y = p.Y, z = p.Z, rotY = p.RotY, score = p.Score,
+                inCarId = p.InCarId ?? ""
             });
         }
 
