@@ -144,7 +144,7 @@ public class DrivableCar : MonoBehaviour
         return;
       }
 
-      rb.angularVelocity = Vector3.zero;
+      if (!rb.isKinematic) rb.angularVelocity = Vector3.zero;
 
       // Serveur : voiture conduite par un joueur réseau.
       if (IsNetworkDriven) {
@@ -252,6 +252,7 @@ public class DrivableCar : MonoBehaviour
 
     public void StopNow()
     {
+      if (rb == null || rb.isKinematic) return;
       rb.linearVelocity = Vector3.zero;
       rb.angularVelocity = Vector3.zero;
     }

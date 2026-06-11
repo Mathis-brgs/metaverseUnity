@@ -217,17 +217,17 @@ public class CharacterController : MonoBehaviour
     {
       if (isDriving) {
         ExitCar();
-        if (Net != null && Net.HasSession) {
-          Net.SendCarExit();
-        }
+        if (Net != null && Net.HasSession) Net.SendCarExit();
         return;
       }
 
-      bool entered = TryEnterNearestCar();
-      if (entered && Net != null && Net.HasSession) {
-        // carId vide : le serveur choisit la voiture la plus proche du joueur.
+      if (Net != null && Net.HasSession) {
+        // En réseau : on demande au serveur, qui confirme via CAR_ENTERED avant qu'on monte.
         Net.SendCarEnter("");
+        return;
       }
+
+      TryEnterNearestCar();
     }
 
     bool TryEnterNearestCar()

@@ -111,7 +111,14 @@ public class RemotePlayerManager : MonoBehaviour
 
     void HandleCarEntered(CarEnteredMessage msg)
     {
-        if (msg.driverId == _net.MyPlayerId) return;
+        if (msg.driverId == _net.MyPlayerId)
+        {
+            // Confirmation serveur : on monte dans la voiture localement.
+            DrivableCar car = ResolveCar(msg.carId);
+            if (car != null && _net.InputSource != null)
+                car.Enter(_net.InputSource);
+            return;
+        }
         _driverByCar[msg.carId] = msg.driverId;
         _inCar[msg.driverId] = true;
         SetRemoteVisible(msg.driverId, false);
