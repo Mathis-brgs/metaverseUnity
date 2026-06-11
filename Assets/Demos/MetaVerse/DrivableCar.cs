@@ -85,6 +85,10 @@ public class DrivableCar : MonoBehaviour
       rb.angularDamping = 4f;
       rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
       sceneAnimation = GetComponentInChildren<Animation>();
+      // Voiture animée : kinematic pour que l'animation ne se batte pas avec la physique.
+      if (sceneAnimation != null && UseSceneAnimationWhenEmpty) {
+        rb.isKinematic = true;
+      }
 
       if (GetComponentInChildren<Collider>() == null) {
         BoxCollider box = gameObject.AddComponent<BoxCollider>();
@@ -184,6 +188,7 @@ public class DrivableCar : MonoBehaviour
       StopNow();
       parked = false;
       driver = character;
+      if (rb != null) rb.isKinematic = false;
       driver.EnterCar(this);
     }
 
@@ -194,6 +199,8 @@ public class DrivableCar : MonoBehaviour
       driver = null;
       StopNow();
       parked = ParkAfterDriverExit;
+      if (sceneAnimation != null && UseSceneAnimationWhenEmpty && !ClientSuppressed)
+        rb.isKinematic = true;
     }
 
     public Vector3 GetExitPosition()
@@ -218,6 +225,8 @@ public class DrivableCar : MonoBehaviour
       _networkInput = Vector2.zero;
       StopNow();
       parked = ParkAfterDriverExit;
+      if (sceneAnimation != null && UseSceneAnimationWhenEmpty)
+        rb.isKinematic = true;
     }
 
     public void SetNetworkInput(Vector2 input)

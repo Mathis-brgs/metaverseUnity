@@ -50,6 +50,8 @@ public class CharacterController : MonoBehaviour
     Coroutine knockDownRoutine;
     DrivableCar currentCar;
     Collider[] colliders;
+    readonly System.Collections.Generic.List<Renderer> _hiddenForCar = new System.Collections.Generic.List<Renderer>();
+    readonly System.Collections.Generic.List<Collider> _hiddenCollidersForCar = new System.Collections.Generic.List<Collider>();
     int comboHitsReceived;
     float lastHitTime;
     bool isDriving;
@@ -308,10 +310,25 @@ public class CharacterController : MonoBehaviour
 
     void SetCharacterVisible(bool visible)
     {
-      foreach (var r in GetComponentsInChildren<Renderer>(true))
-        r.enabled = visible;
-      foreach (var c in GetComponentsInChildren<Collider>(true))
-        c.enabled = visible;
+      if (visible)
+      {
+        // Ne ré-active que ce qui était visible avant l'entrée (évite de montrer l'engineer si un skin est actif).
+        foreach (var r in _hiddenForCar)
+          if (r != null) r.enabled = true;
+        _hiddenForCar.Clear();
+        foreach (var c in _hiddenCollidersForCar)
+          if (c != null) c.enabled = true;
+        _hiddenCollidersForCar.Clear();
+      }
+      else
+      {
+        _hiddenForCar.Clear();
+        foreach (var r in GetComponentsInChildren<Renderer>(true))
+          if (r.enabled) { r.enabled = false; _hiddenForCar.Add(r); }
+        _hiddenCollidersForCar.Clear();
+        foreach (var c in GetComponentsInChildren<Collider>(true))
+          if (c.enabled) { c.enabled = false; _hiddenCollidersForCar.Add(c); }
+      }
     }
 
     void TryAttack()
