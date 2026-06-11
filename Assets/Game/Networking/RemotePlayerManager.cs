@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -18,7 +19,7 @@ public class RemotePlayerManager : MonoBehaviour
     public CharacterPrefabEntry[] CharacterPrefabs;
 
     [Tooltip("Seuil (m) au-delà duquel le joueur local est resynchronisé sur la position serveur.")]
-    public float LocalReconcileThreshold = 2.5f;
+    public float LocalReconcileThreshold = 5f;
     public float InterpolationSpeed = 12f;
 
     NetworkManager _net;
@@ -26,17 +27,32 @@ public class RemotePlayerManager : MonoBehaviour
     readonly Dictionary<string, Vector3> _targetPos = new Dictionary<string, Vector3>();
     readonly Dictionary<string, float> _targetRotY = new Dictionary<string, float>();
     readonly Dictionary<string, bool> _inCar = new Dictionary<string, bool>();
+    readonly Dictionary<string, bool> _knockedDown = new Dictionary<string, bool>();
+    readonly Dictionary<string, Coroutine> _remoteHitRoutines = new Dictionary<string, Coroutine>();
     readonly Dictionary<string, DrivableCar> _carsByName = new Dictionary<string, DrivableCar>();
     readonly Dictionary<string, string> _driverByCar = new Dictionary<string, string>();
     readonly Dictionary<string, Animator> _animators = new Dictionary<string, Animator>();
     readonly Dictionary<string, Vector3> _prevStatePos = new Dictionary<string, Vector3>();
     const float StateInterval = 0.05f; // 20 Hz — aligné avec le serveur
-    const float WalkSpeedRef = 3f;     // CharacterController.WalkSpeed par défaut
+    const float WalkSpeedRef = 3f;
+    const float RemoteKnockDownDuration = 1.15f;
+    const float RemoteStandUpDuration = 1.1f;
+    const float RemoteHitAnimDuration = 0.45f;
 
     void Awake()
     {
         _net = GetComponent<NetworkManager>();
         if (_net == null) _net = FindFirstObjectByType<NetworkManager>();
+    }
+
+    void Start()
+    {
+        RegisterClientCars();
+    }
+
+    void RegisterClientCars()
+    {
+        DrivableCar.AssignNetworkIds(_carsByName);
     }
 
     void OnEnable()
@@ -65,11 +81,17 @@ public class RemotePlayerManager : MonoBehaviour
 
     void HandleInitState(InitStateMessage msg)
     {
+        RegisterClientCars();
+
         if (msg.players != null)
         {
             foreach (var p in msg.players)
             {
-                if (p.id == msg.playerId) continue;
+                if (p.id == msg.playerId)
+                {
+                    SyncLocalCarState(p.inCarId);
+                    continue;
+                }
                 SpawnRemote(p.id, p.character, p.x, p.y, p.z, p.rotY);
                 if (!string.IsNullOrEmpty(p.inCarId))
                 {
@@ -105,6 +127,10 @@ public class RemotePlayerManager : MonoBehaviour
         _targetPos.Remove(msg.id);
         _targetRotY.Remove(msg.id);
         _inCar.Remove(msg.id);
+        _knockedDown.Remove(msg.id);
+        if (_remoteHitRoutines.TryGetValue(msg.id, out var routine) && routine != null)
+            StopCoroutine(routine);
+        _remoteHitRoutines.Remove(msg.id);
         _animators.Remove(msg.id);
         _prevStatePos.Remove(msg.id);
         foreach (var kvp in new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string,string>>(_driverByCar))
@@ -149,23 +175,53 @@ public class RemotePlayerManager : MonoBehaviour
         if (msg == null) return;
 
         Vector3 attackerPos = new Vector3(msg.attackerX, 0f, msg.attackerZ);
+        bool knockDown = msg.knockDown != 0;
 
         if (msg.targetId == _net.MyPlayerId)
         {
             if (_net.InputSource != null)
-                _net.InputSource.ReceiveNetworkHit(attackerPos);
+                _net.InputSource.ReceiveNetworkHit(attackerPos, knockDown, msg.hitIndex);
             return;
         }
 
-        if (_spawned.TryGetValue(msg.targetId, out var go) && go != null)
-            PlayRemoteHitAnimation(msg.targetId);
+        if (_spawned.ContainsKey(msg.targetId))
+            PlayRemoteHit(msg.targetId, knockDown, msg.hitIndex);
     }
 
-    void PlayRemoteHitAnimation(string playerId)
+    void PlayRemoteHit(string playerId, bool knockDown, int hitIndex)
     {
         if (!_animators.TryGetValue(playerId, out var anim) || anim == null) return;
+
+        if (_remoteHitRoutines.TryGetValue(playerId, out var existing) && existing != null)
+            StopCoroutine(existing);
+
+        _remoteHitRoutines[playerId] = StartCoroutine(RemoteHitRoutine(playerId, anim, knockDown, hitIndex));
+    }
+
+    IEnumerator RemoteHitRoutine(string playerId, Animator anim, bool knockDown, int hitIndex)
+    {
+        _knockedDown[playerId] = knockDown;
         anim.SetFloat("Walk", 0f);
-        anim.CrossFade("Hit_A", 0.05f);
+
+        if (knockDown)
+        {
+            anim.CrossFade("KnockDown", 0.05f);
+            yield return new WaitForSeconds(RemoteKnockDownDuration);
+            anim.CrossFade("StandUp", 0.08f);
+            yield return new WaitForSeconds(RemoteStandUpDuration);
+            anim.CrossFade("Idle", 0.12f);
+        }
+        else
+        {
+            string hitState = hitIndex % 2 == 0 ? "Hit_B" : "Hit_A";
+            anim.CrossFade(hitState, 0.05f);
+            yield return new WaitForSeconds(RemoteHitAnimDuration);
+            if (!_knockedDown.TryGetValue(playerId, out bool stillKd) || !stillKd)
+                anim.CrossFade("Idle", 0.1f);
+        }
+
+        _knockedDown[playerId] = false;
+        _remoteHitRoutines[playerId] = null;
     }
 
     /// <summary>Retourne l'id du joueur distant le plus proche dans le rayon (pour ATTACK).</summary>
@@ -196,8 +252,8 @@ public class RemotePlayerManager : MonoBehaviour
         float t = Time.deltaTime * InterpolationSpeed;
         foreach (var kvp in _spawned)
         {
-            // Joueur en voiture : caché, pas d'interpolation au sol.
             if (_inCar.TryGetValue(kvp.Key, out bool inCar) && inCar) continue;
+            if (_knockedDown.TryGetValue(kvp.Key, out bool kd) && kd) continue;
             if (!_targetPos.TryGetValue(kvp.Key, out var tPos)) continue;
 
             kvp.Value.transform.position = Vector3.Lerp(kvp.Value.transform.position, tPos, t);
@@ -218,6 +274,7 @@ public class RemotePlayerManager : MonoBehaviour
             {
                 if (p.id == _net.MyPlayerId)
                 {
+                    SyncLocalCarState(p.inCarId);
                     ReconcileLocal(p);
                     continue;
                 }
@@ -231,12 +288,15 @@ public class RemotePlayerManager : MonoBehaviour
                 if (!inCar)
                 {
                     var newPos = new Vector3(p.x, p.y, p.z);
-                    if (_prevStatePos.TryGetValue(p.id, out var prev))
+                    bool isKd = _knockedDown.TryGetValue(p.id, out bool kd) && kd;
+
+                    if (!isKd && _prevStatePos.TryGetValue(p.id, out var prev))
                     {
                         float walkAmount = Mathf.Clamp01(Vector3.Distance(prev, newPos) / (StateInterval * WalkSpeedRef));
                         if (_animators.TryGetValue(p.id, out var anim) && anim != null)
                             anim.SetFloat("Walk", walkAmount);
                     }
+
                     _prevStatePos[p.id] = newPos;
                     _targetPos[p.id] = newPos;
                     _targetRotY[p.id] = p.rotY;
@@ -255,21 +315,35 @@ public class RemotePlayerManager : MonoBehaviour
         }
     }
 
+    void SyncLocalCarState(string inCarId)
+    {
+        if (_net?.InputSource == null) return;
+
+        bool serverInCar = !string.IsNullOrEmpty(inCarId);
+        if (serverInCar && !_net.InputSource.IsDrivingCar)
+        {
+            DrivableCar car = ResolveCar(inCarId);
+            if (car != null)
+                car.Enter(_net.InputSource);
+            else
+                Debug.LogWarning("[RemotePlayerManager] Voiture introuvable pour inCarId=" + inCarId);
+        }
+        else if (!serverInCar && _net.InputSource.IsDrivingCar)
+            _net.InputSource.ExitCarFromNetwork();
+    }
+
     void ReconcileLocal(NetPlayerPosition serverPos)
     {
         if (_net.InputSource == null) return;
-        if (_net.InputSource.IsDrivingCar) return;
+        if (!string.IsNullOrEmpty(serverPos.inCarId)) return;
+        if (_net.InputSource.IsDrivingCar || _net.InputSource.IsKnockedDown) return;
 
+        Vector3 serverPos3 = new Vector3(serverPos.x, serverPos.y, serverPos.z);
         Transform local = _net.InputSource.transform;
-        Vector3 target = new Vector3(serverPos.x, serverPos.y, serverPos.z);
-        Vector3 delta = local.position - target;
 
-        // Correction Y légère (évite la lévitation visible chez les autres).
-        if (Mathf.Abs(delta.y) > 0.15f)
-            local.position = new Vector3(local.position.x, target.y, local.position.z);
-
-        if (delta.sqrMagnitude > LocalReconcileThreshold * LocalReconcileThreshold)
-            local.position = target;
+        // Resync d'urgence uniquement (teleport / bug) — le mouvement courant reste côté client.
+        if ((local.position - serverPos3).sqrMagnitude > LocalReconcileThreshold * LocalReconcileThreshold)
+            local.position = serverPos3;
     }
 
     void SetRemoteVisible(string id, bool visible)
@@ -287,6 +361,11 @@ public class RemotePlayerManager : MonoBehaviour
 
         foreach (var car in FindObjectsByType<DrivableCar>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
         {
+            if (!string.IsNullOrEmpty(car.ServerId) && car.ServerId == carId)
+            {
+                _carsByName[carId] = car;
+                return car;
+            }
             if (car.gameObject.name == carId)
             {
                 _carsByName[carId] = car;

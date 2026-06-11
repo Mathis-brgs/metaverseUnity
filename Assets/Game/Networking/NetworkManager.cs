@@ -287,6 +287,11 @@ public class NetworkManager : MonoBehaviour
             Vector3 dir = InputSource.GetDesiredWorldMove();
             ix = dir.x;
             iz = dir.z;
+            float rotY = InputSource.transform.eulerAngles.y;
+            if (dir.sqrMagnitude > 0.001f)
+                rotY = Quaternion.LookRotation(dir.normalized, Vector3.up).eulerAngles.y;
+            SendInput(ix, iz, rotY, InputSource.transform.position.y);
+            return;
         }
 
         SendInput(ix, iz, InputSource.transform.eulerAngles.y, InputSource.transform.position.y);

@@ -19,6 +19,9 @@ public class PlayerState
 
     // Voiture actuellement conduite par ce joueur (null si à pied).
     public string InCarId;
+
+    // Temps Unity (Time.time) jusqu'auquel le joueur est étourdi / au sol (KO réseau).
+    public float StunnedUntil;
 }
 
 [Serializable]

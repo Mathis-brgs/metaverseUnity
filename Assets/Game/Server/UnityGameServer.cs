@@ -46,6 +46,12 @@ public class UnityGameServer : MonoBehaviour
     int _nextId = 1;
     float _broadcastTimer;
 
+    const float HitComboWindow = 2f;
+    const int HitsBeforeKnockDown = 3;
+    const float KnockDownDuration = 1.15f;
+    const float StandUpDuration = 1.1f;
+    readonly Dictionary<string, (int hits, float lastHitTime)> _attackCombos = new Dictionary<string, (int, float)>();
+
     struct UdpPacket
     {
         public string Json;
@@ -341,11 +347,29 @@ public class UnityGameServer : MonoBehaviour
         if (!World.Players.TryGetValue(msg.attackerId, out var attacker)) return;
         if (!World.Players.TryGetValue(msg.targetId, out var target)) return;
         if (!string.IsNullOrEmpty(attacker.InCarId) || !string.IsNullOrEmpty(target.InCarId)) return;
+        if (Time.time < target.StunnedUntil) return;
 
         float dx = attacker.X - target.X;
         float dz = attacker.Z - target.Z;
         const float maxRange = 2.2f;
         if (dx * dx + dz * dz > maxRange * maxRange) return;
+
+        string comboKey = msg.attackerId + ">" + msg.targetId;
+        if (!_attackCombos.TryGetValue(comboKey, out var combo) || Time.time - combo.lastHitTime > HitComboWindow)
+            combo = (0, 0f);
+
+        combo.hits++;
+        combo.lastHitTime = Time.time;
+        int hitIndex = combo.hits;
+        bool knockDown = hitIndex >= HitsBeforeKnockDown;
+
+        if (knockDown)
+        {
+            combo.hits = 0;
+            target.StunnedUntil = Time.time + KnockDownDuration + StandUpDuration;
+        }
+
+        _attackCombos[comboKey] = combo;
 
         Broadcast(new PlayerHitMessage
         {
@@ -353,9 +377,11 @@ public class UnityGameServer : MonoBehaviour
             attackerId = msg.attackerId,
             targetId = msg.targetId,
             attackerX = attacker.X,
-            attackerZ = attacker.Z
+            attackerZ = attacker.Z,
+            knockDown = knockDown ? 1 : 0,
+            hitIndex = hitIndex
         });
-        if (LogMessages) Debug.Log($"[UnityGameServer] {msg.attackerId} frappe {msg.targetId}");
+        if (LogMessages) Debug.Log($"[UnityGameServer] {msg.attackerId} frappe {msg.targetId} (hit {hitIndex}{(knockDown ? " KO" : "")})");
     }
 
     // ---------------- Autorité gameplay (appelée par la scène serveur) ----------------

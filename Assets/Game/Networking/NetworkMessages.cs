@@ -108,6 +108,8 @@ public class PlayerHitMessage
     public string targetId;
     public float attackerX;
     public float attackerZ;
+    public int knockDown;  // 0 = coup normal, 1 = KO
+    public int hitIndex;   // numéro de coup dans le combo (pour Hit_A / Hit_B)
 }
 
 [Serializable]

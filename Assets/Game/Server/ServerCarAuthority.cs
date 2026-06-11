@@ -48,27 +48,16 @@ public class ServerCarAuthority : MonoBehaviour
     {
         if (_server == null) return;
 
-        DrivableCar[] cars = FindObjectsByType<DrivableCar>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-        foreach (var car in cars)
+        _cars.Clear();
+        DrivableCar.AssignNetworkIds(_cars);
+        foreach (var kvp in _cars)
         {
-            string id = ResolveCarId(car);
-            _cars[id] = car;
-            car.ServerId = id;
+            var car = kvp.Value;
             Vector3 p = car.transform.position;
-            _server.World.AddOrUpdateCar(id, p.x, p.y, p.z, car.transform.eulerAngles.y);
+            _server.World.AddOrUpdateCar(kvp.Key, p.x, p.y, p.z, car.transform.eulerAngles.y);
         }
 
-        Debug.Log($"[ServerCarAuthority] {cars.Length} voitures enregistrées.");
-    }
-
-    string ResolveCarId(DrivableCar car)
-    {
-        string baseId = car.gameObject.name;
-        if (!_cars.ContainsKey(baseId)) return baseId;
-
-        int i = 2;
-        while (_cars.ContainsKey(baseId + "_" + i)) i++;
-        return baseId + "_" + i;
+        Debug.Log($"[ServerCarAuthority] {_cars.Count} voitures enregistrées.");
     }
 
     void OnPlayerInput(string playerId, float ix, float iz, float rotY, float y)
@@ -83,9 +72,8 @@ public class ServerCarAuthority : MonoBehaviour
         if (!_server.World.Players.TryGetValue(playerId, out var player)) return;
         if (!string.IsNullOrEmpty(player.InCarId)) return;
 
-        DrivableCar car = !string.IsNullOrEmpty(carId) && _cars.ContainsKey(carId)
-            ? _cars[carId]
-            : FindNearestFreeCar(player);
+        Vector3 playerPos = GetPlayerWorldPosition(playerId, player);
+        DrivableCar car = ResolveEnterCar(carId, playerPos, player);
 
         if (car == null) return;
         string resolvedId = car.ServerId;
@@ -93,6 +81,7 @@ public class ServerCarAuthority : MonoBehaviour
         if (!_server.World.TryEnterCar(resolvedId, playerId)) return;
 
         car.BeginNetworkDrive();
+        SyncDriverToCar(playerId, player, car);
         _server.NotifyCarEntered(resolvedId, playerId);
         Debug.Log($"[ServerCarAuthority] {playerId} monte dans {resolvedId}");
     }
@@ -142,15 +131,61 @@ public class ServerCarAuthority : MonoBehaviour
                 carState.Y = p.y;
                 carState.Z = p.z;
                 carState.RotY = car.transform.eulerAngles.y;
+
+                if (!string.IsNullOrEmpty(carState.DriverId)
+                    && _server.World.Players.TryGetValue(carState.DriverId, out var driver))
+                {
+                    driver.X = carState.X;
+                    driver.Y = carState.Y;
+                    driver.Z = carState.Z;
+                    driver.RotY = carState.RotY;
+                    SyncDriverToCar(carState.DriverId, driver, car);
+                }
             }
         }
     }
 
-    DrivableCar FindNearestFreeCar(PlayerState player)
+    Vector3 GetPlayerWorldPosition(string playerId, PlayerState player)
+    {
+        var proxy = FindProxy(playerId);
+        if (proxy != null) return proxy.transform.position;
+        return new Vector3(player.X, player.Y, player.Z);
+    }
+
+    DrivableCar ResolveEnterCar(string carId, Vector3 playerPos, PlayerState player)
+    {
+        if (!string.IsNullOrEmpty(carId) && _cars.TryGetValue(carId, out var requested))
+        {
+            if (_server.World.Cars.TryGetValue(carId, out var cs) && !string.IsNullOrEmpty(cs.DriverId))
+                return null;
+            float d = (requested.transform.position - playerPos).sqrMagnitude;
+            if (d <= EnterRadius * EnterRadius) return requested;
+        }
+
+        return FindNearestFreeCar(playerPos);
+    }
+
+    void SyncDriverToCar(string playerId, PlayerState player, DrivableCar car)
+    {
+        Vector3 seatPos = car.Seat != null ? car.Seat.position : car.transform.position;
+        float rotY = car.transform.eulerAngles.y;
+        player.X = seatPos.x;
+        player.Y = seatPos.y;
+        player.Z = seatPos.z;
+        player.RotY = rotY;
+
+        var proxy = FindProxy(playerId);
+        if (proxy != null)
+        {
+            proxy.transform.position = seatPos;
+            proxy.transform.rotation = Quaternion.Euler(0f, rotY, 0f);
+        }
+    }
+
+    DrivableCar FindNearestFreeCar(Vector3 playerPos)
     {
         DrivableCar best = null;
         float bestDist = EnterRadius * EnterRadius;
-        Vector3 playerPos = new Vector3(player.X, player.Y, player.Z);
 
         foreach (var car in _cars.Values)
         {

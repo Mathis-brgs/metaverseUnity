@@ -87,14 +87,19 @@ public class CharacterController : MonoBehaviour
           return;
         }
 
-        rb.angularVelocity = Vector3.zero;
-
         Vector2 vec = PlayerAction.ReadValue<Vector2>();
         Vector3 movement = GetMovementDirection(vec);
         float moveAmount = Mathf.Clamp01(movement.magnitude / Mathf.Max(WalkSpeed, StrafeSpeed));
 
         Anim.SetFloat("Walk", moveAmount);
         Anim.speed = IsSlowed ? 0.55f : 1f;
+
+        // En ligne : mouvement local (gravité + collisions sol) — le serveur suit via INPUT sans bloquer sur les murs.
+        if (IsNetworkOnline && rb.isKinematic) {
+          rb.isKinematic = false;
+        }
+
+        rb.angularVelocity = Vector3.zero;
 
         if (movement.sqrMagnitude > 0.001f) {
           Quaternion targetRotation = Quaternion.LookRotation(movement.normalized, Vector3.up);
@@ -205,6 +210,14 @@ public class CharacterController : MonoBehaviour
       get { return isDriving; }
     }
 
+    public bool IsKnockedDown {
+      get { return isKnockedDown; }
+    }
+
+    bool IsNetworkOnline {
+      get { return Net != null && Net.HasSession && !isDriving; }
+    }
+
     NetworkManager _net;
     NetworkManager Net {
       get {
@@ -225,39 +238,49 @@ public class CharacterController : MonoBehaviour
       }
 
       if (Net != null && Net.HasSession) {
-        // En réseau : on demande au serveur, qui confirme via CAR_ENTERED avant qu'on monte.
-        Net.SendCarEnter("");
+        // En réseau : on envoie l'id réseau de la voiture la plus proche (serveur valide).
+        DrivableCar nearest = FindNearestEnterableCar();
+        string carId = nearest != null
+            ? (string.IsNullOrEmpty(nearest.ServerId) ? nearest.gameObject.name : nearest.ServerId)
+            : "";
+        Net.SendCarEnter(carId);
         return;
       }
 
       TryEnterNearestCar();
     }
 
-    bool TryEnterNearestCar()
+    public DrivableCar FindNearestEnterableCar()
     {
       Collider[] hits = Physics.OverlapSphere(transform.position, CarEnterRadius, ~0, QueryTriggerInteraction.Collide);
       DrivableCar closest = null;
       float closestDistance = float.MaxValue;
 
-      foreach (Collider hit in hits) {
+      foreach (Collider hit in hits)
+      {
         DrivableCar car = hit.GetComponentInParent<DrivableCar>();
-        if (car == null) {
-          car = TryMakeCarDrivable(hit.transform);
-        }
-        if (car == null || !car.CanEnter(this)) { continue; }
+        if (car == null) car = TryMakeCarDrivable(hit.transform);
+        if (car == null || !car.CanEnter(this)) continue;
 
         float distance = Vector3.SqrMagnitude(car.transform.position - transform.position);
-        if (distance < closestDistance) {
+        if (distance < closestDistance)
+        {
           closest = car;
           closestDistance = distance;
         }
       }
 
-      if (closest != null) {
+      return closest;
+    }
+
+    bool TryEnterNearestCar()
+    {
+      DrivableCar closest = FindNearestEnterableCar();
+      if (closest != null)
+      {
         closest.Enter(this);
         return true;
       }
-
       return false;
     }
 
@@ -394,9 +417,32 @@ public class CharacterController : MonoBehaviour
       return closest;
     }
 
-    public void ReceiveNetworkHit(Vector3 attackerPosition)
+    public void ReceiveNetworkHit(Vector3 attackerPosition, bool knockDown, int hitIndex)
     {
-      ReceiveHit(attackerPosition, AttackSlowDuration);
+      if (isKnockedDown) { return; }
+
+      slowedUntil = Mathf.Max(slowedUntil, Time.time + AttackSlowDuration);
+
+      // Pas de knockback physique en réseau — évite les désyncs / rollbacks.
+      if (hitFeedback != null) {
+        StopCoroutine(hitFeedback);
+      }
+      hitFeedback = StartCoroutine(PlayHitFeedback());
+
+      if (knockDown) {
+        comboHitsReceived = 0;
+        if (knockDownRoutine != null) StopCoroutine(knockDownRoutine);
+        if (hitAnimationRoutine != null) {
+          StopCoroutine(hitAnimationRoutine);
+          hitAnimationRoutine = null;
+        }
+        knockDownRoutine = StartCoroutine(PlayKnockDownSequence());
+        return;
+      }
+
+      string hitState = hitIndex % 2 == 0 ? "Hit_B" : "Hit_A";
+      if (hitAnimationRoutine != null) StopCoroutine(hitAnimationRoutine);
+      hitAnimationRoutine = StartCoroutine(PlayHitAnimation(hitState));
     }
 
     void ReceiveHit(Vector3 attackerPosition, float duration)

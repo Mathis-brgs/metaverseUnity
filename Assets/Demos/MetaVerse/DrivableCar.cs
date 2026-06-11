@@ -66,6 +66,31 @@ public class DrivableCar : MonoBehaviour
       return objectName.Length > 3 && objectName.StartsWith("Car") && char.IsDigit(objectName[3]);
     }
 
+    /// <summary>
+    /// Attribue des ServerId stables (Car6A, Car6A_2, …) — même logique que le serveur.
+    /// </summary>
+    public static void AssignNetworkIds(System.Collections.Generic.Dictionary<string, DrivableCar> registry = null)
+    {
+      DrivableCar[] cars = FindObjectsByType<DrivableCar>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+      System.Array.Sort(cars, (a, b) => string.CompareOrdinal(a.gameObject.name, b.gameObject.name));
+
+      var used = new System.Collections.Generic.Dictionary<string, DrivableCar>();
+      foreach (DrivableCar car in cars)
+      {
+        string id = car.gameObject.name;
+        if (used.ContainsKey(id))
+        {
+          int i = 2;
+          while (used.ContainsKey(id + "_" + i)) i++;
+          id = id + "_" + i;
+        }
+
+        car.ServerId = id;
+        used[id] = car;
+        if (registry != null) registry[id] = car;
+      }
+    }
+
     public bool HasDriver {
       get { return driver != null; }
     }

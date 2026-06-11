@@ -105,9 +105,10 @@ public class ServerBootstrap : MonoBehaviour
     GameObject CreateDefaultProxy()
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        // Pas de rendu nécessaire côté serveur.
         var rend = go.GetComponent<Renderer>();
         if (rend != null) rend.enabled = false;
+        var col = go.GetComponent<Collider>();
+        if (col != null) col.isTrigger = true;
         return go;
     }
 

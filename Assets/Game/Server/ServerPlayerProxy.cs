@@ -41,9 +41,14 @@ public class ServerPlayerProxy : MonoBehaviour
             capsule.radius = 0.4f;
         }
 
+        // Trigger uniquement : détection bonus sans bloquer le déplacement sur trottoirs / murs.
+        foreach (var c in GetComponents<Collider>())
+            c.isTrigger = true;
+
         _rb = GetComponent<Rigidbody>();
         _rb.useGravity = false;
-        _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ | RigidbodyConstraints.FreezePositionY;
+        _rb.isKinematic = true;
+        _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
         _rb.interpolation = RigidbodyInterpolation.None;
 
         // Spawn à la position annoncée dans le JOIN ; grille près de l'origine en secours (clients legacy).
@@ -62,20 +67,18 @@ public class ServerPlayerProxy : MonoBehaviour
 
     public void SetInput(float ix, float iz, float rotY, float y)
     {
-        // Mode INPUT : le serveur simule la physique (collisions) → Rigidbody dynamique.
-        if (_rb != null && _rb.isKinematic) _rb.isKinematic = false;
-
         _inputDir = new Vector3(ix, 0f, iz);
         if (_inputDir.sqrMagnitude > 1f) _inputDir.Normalize();
         _targetRotY = rotY;
         _hasInput = true;
 
-        // Y rapporté par le client (suivi du sol local) — évite la lévitation des joueurs distants.
+        // Y rapporté par le client (gravité / sol local).
         if (!float.IsNaN(y) && !float.IsInfinity(y) && string.IsNullOrEmpty(_state.InCarId))
         {
-            Vector3 pos = _rb.position;
+            Vector3 pos = transform.position;
             pos.y = y;
-            _rb.position = pos;
+            transform.position = pos;
+            if (_rb != null) _rb.position = pos;
         }
     }
 
@@ -109,20 +112,35 @@ public class ServerPlayerProxy : MonoBehaviour
             return;
         }
 
+        // KO / étourdissement : immobile côté serveur.
+        if (Time.time < _state.StunnedUntil)
+        {
+            _rb.linearVelocity = Vector3.zero;
+            _hasInput = false;
+            WriteBack();
+            return;
+        }
+
         _rb.angularVelocity = Vector3.zero;
 
         if (_hasInput && _inputDir.sqrMagnitude > 0.0001f)
         {
             Vector3 movement = _inputDir * WalkSpeed * Time.fixedDeltaTime;
-            _rb.MovePosition(_rb.position + movement);
+            Vector3 next = transform.position + movement;
+            transform.position = next;
+            if (_rb != null) _rb.position = next;
 
             Quaternion target = Quaternion.Euler(0f, _targetRotY, 0f);
-            _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, target, TurnSpeed * Time.fixedDeltaTime));
+            Quaternion nextRot = Quaternion.RotateTowards(transform.rotation, target, TurnSpeed * Time.fixedDeltaTime);
+            transform.rotation = nextRot;
+            if (_rb != null) _rb.rotation = nextRot;
         }
         else if (_hasInput)
         {
             Quaternion target = Quaternion.Euler(0f, _targetRotY, 0f);
-            _rb.MoveRotation(Quaternion.RotateTowards(_rb.rotation, target, TurnSpeed * Time.fixedDeltaTime));
+            Quaternion nextRot = Quaternion.RotateTowards(transform.rotation, target, TurnSpeed * Time.fixedDeltaTime);
+            transform.rotation = nextRot;
+            if (_rb != null) _rb.rotation = nextRot;
         }
 
         WriteBack();
