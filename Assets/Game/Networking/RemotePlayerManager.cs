@@ -202,8 +202,11 @@ public class RemotePlayerManager : MonoBehaviour
         if (_net.InputSource == null) return;
         if (_net.InputSource.IsDrivingCar) return; // en voiture : suivi via le siège
 
-        Transform local = _net.InputSource.transform;
         Vector3 target = new Vector3(serverPos.x, serverPos.y, serverPos.z);
+        // Position (0,0,0) = serveur n'a pas encore reçu d'input → ne pas snapper.
+        if (target.sqrMagnitude < 0.01f) return;
+
+        Transform local = _net.InputSource.transform;
         if ((local.position - target).sqrMagnitude > LocalReconcileThreshold * LocalReconcileThreshold)
             local.position = target;
     }

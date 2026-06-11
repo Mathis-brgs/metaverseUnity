@@ -413,6 +413,8 @@ public class UnityGameServer : MonoBehaviour
         var players = new List<NetPlayerPosition>();
         foreach (var p in World.Players.Values)
         {
+            // Pas encore reçu d'INPUT/MOVE : position inconnue (0,0,0), ne pas inclure.
+            if (!_udpEndpoints.ContainsKey(p.Id)) continue;
             players.Add(new NetPlayerPosition
             {
                 id = p.Id, x = p.X, y = p.Y, z = p.Z, rotY = p.RotY, inCarId = p.InCarId ?? ""
