@@ -363,7 +363,7 @@ public class CharacterController : MonoBehaviour
 
       Vector3 knockbackDirection = transform.position - attackerPosition;
       knockbackDirection.y = 0f;
-      if (knockbackDirection.sqrMagnitude > 0.001f) {
+      if (rb != null && knockbackDirection.sqrMagnitude > 0.001f) {
         rb.AddForce(knockbackDirection.normalized * AttackKnockback, ForceMode.VelocityChange);
       }
 
