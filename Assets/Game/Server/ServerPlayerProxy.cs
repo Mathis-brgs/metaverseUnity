@@ -45,7 +45,8 @@ public class ServerPlayerProxy : MonoBehaviour
         _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
         _rb.interpolation = RigidbodyInterpolation.None;
 
-        Vector3 spawn = new Vector3((_spawnIndex % 4) * 1.5f, 1f, (_spawnIndex / 4) * 1.5f);
+        Vector3 spawnBase = new Vector3(250.406921f, 0.318325f, 248.204315f);
+        Vector3 spawn = spawnBase + new Vector3((_spawnIndex % 4) * 1.5f, 0f, (_spawnIndex / 4) * 1.5f);
         _spawnIndex++;
         transform.position = spawn;
         _targetRotY = 0f;
