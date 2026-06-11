@@ -124,6 +124,8 @@ public class DrivableCar : MonoBehaviour
         if (rb != null && !rb.isKinematic) {
           rb.isKinematic = true;
         }
+        SetSceneAnimationPlaying(false);
+        SetEngineSoundPlaying(false);
         return;
       }
 
@@ -215,8 +217,16 @@ public class DrivableCar : MonoBehaviour
 
     public void ApplyNetworkTransform(Vector3 position, float rotY)
     {
+      Quaternion rotation = Quaternion.Euler(0f, rotY, 0f);
+      if (rb != null) {
+        rb.isKinematic = true;
+        rb.position = position;
+        rb.rotation = rotation;
+        rb.linearVelocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+      }
       transform.position = position;
-      transform.rotation = Quaternion.Euler(0f, rotY, 0f);
+      transform.rotation = rotation;
     }
 
     public void StopNow()

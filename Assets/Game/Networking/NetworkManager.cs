@@ -233,6 +233,9 @@ public class NetworkManager : MonoBehaviour
     void TrySendMoveTick()
     {
         if (!SendMoveAutomatically || !HasSession) return;
+        // En mode serveur autoritaire, INPUT est la source de verite. Garder MOVE actif en meme temps
+        // permettrait au client de reecrire sa position cote serveur et de perturber les voitures.
+        if (SendInputAutomatically && InputSource != null) return;
         _moveTimer += Time.deltaTime;
         if (_moveTimer < MoveSendInterval) return;
         _moveTimer = 0f;

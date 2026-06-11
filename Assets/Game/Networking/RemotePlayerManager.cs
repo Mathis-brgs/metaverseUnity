@@ -42,6 +42,7 @@ public class RemotePlayerManager : MonoBehaviour
     {
         if (_net == null) return;
         _net.OnInitState.AddListener(HandleInitState);
+        _net.OnInitState.AddListener(ApplyInitialCars);
         _net.OnPlayerJoin.AddListener(HandlePlayerJoin);
         _net.OnPlayerLeft.AddListener(HandlePlayerLeft);
         _net.OnState.AddListener(HandleState);
@@ -51,6 +52,7 @@ public class RemotePlayerManager : MonoBehaviour
     {
         if (_net == null) return;
         _net.OnInitState.RemoveListener(HandleInitState);
+        _net.OnInitState.RemoveListener(ApplyInitialCars);
         _net.OnPlayerJoin.RemoveListener(HandlePlayerJoin);
         _net.OnPlayerLeft.RemoveListener(HandlePlayerLeft);
         _net.OnState.RemoveListener(HandleState);
@@ -66,6 +68,12 @@ public class RemotePlayerManager : MonoBehaviour
                 SpawnRemote(p.id, p.character, p.x, p.y, p.z, p.rotY);
             }
         }
+    }
+
+    void ApplyInitialCars(InitStateMessage msg)
+    {
+        if (msg.cars != null)
+            ApplyCars(msg.cars);
     }
 
     void HandlePlayerJoin(PlayerJoinMessage msg)
@@ -160,6 +168,26 @@ public class RemotePlayerManager : MonoBehaviour
             local.position = target;
     }
 
+    void ApplyCars(NetCarSnapshot[] cars)
+    {
+        foreach (var c in cars)
+        {
+            DrivableCar car = ResolveCar(c.id);
+            if (car != null)
+                car.ApplyNetworkTransform(new Vector3(c.x, c.y, c.z), c.rotY);
+        }
+    }
+
+    void ApplyCars(NetCarPosition[] cars)
+    {
+        foreach (var c in cars)
+        {
+            DrivableCar car = ResolveCar(c.id);
+            if (car != null)
+                car.ApplyNetworkTransform(new Vector3(c.x, c.y, c.z), c.rotY);
+        }
+    }
+
     void SetRemoteVisible(string id, bool visible)
     {
         if (!_spawned.TryGetValue(id, out var go) || go == null) return;
@@ -175,8 +203,9 @@ public class RemotePlayerManager : MonoBehaviour
 
         foreach (var car in FindObjectsByType<DrivableCar>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
         {
-            if (car.gameObject.name == carId)
+            if (car.ServerId == carId || car.gameObject.name == carId)
             {
+                car.ServerId = carId;
                 _carsByName[carId] = car;
                 return car;
             }

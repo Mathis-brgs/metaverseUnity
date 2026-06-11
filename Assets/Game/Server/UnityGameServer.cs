@@ -41,6 +41,7 @@ public class UnityGameServer : MonoBehaviour
     readonly List<ServerClient> _clients = new List<ServerClient>();
     readonly Dictionary<string, ServerClient> _clientById = new Dictionary<string, ServerClient>();
     readonly Dictionary<string, IPEndPoint> _udpEndpoints = new Dictionary<string, IPEndPoint>();
+    readonly HashSet<string> _inputDrivenPlayers = new HashSet<string>();
     readonly ConcurrentQueue<UdpPacket> _udpInbox = new ConcurrentQueue<UdpPacket>();
 
     int _nextId = 1;
@@ -113,6 +114,7 @@ public class UnityGameServer : MonoBehaviour
         _clients.Clear();
         _clientById.Clear();
         _udpEndpoints.Clear();
+        _inputDrivenPlayers.Clear();
 
         try { _listener?.Stop(); } catch { }
         _listener = null;
@@ -177,6 +179,7 @@ public class UnityGameServer : MonoBehaviour
         {
             _clientById.Remove(client.PlayerId);
             _udpEndpoints.Remove(client.PlayerId);
+            _inputDrivenPlayers.Remove(client.PlayerId);
 
             bool wasKnown = World.Players.ContainsKey(client.PlayerId);
             World.RemovePlayer(client.PlayerId);
@@ -310,6 +313,8 @@ public class UnityGameServer : MonoBehaviour
         if (msg == null || string.IsNullOrEmpty(msg.id)) return;
         if (!World.Players.ContainsKey(msg.id)) return;
         if (!IsValid(msg.x) || !IsValid(msg.y) || !IsValid(msg.z)) return;
+        if (_inputDrivenPlayers.Contains(msg.id)) return;
+        if (World.Players.TryGetValue(msg.id, out var player) && !string.IsNullOrEmpty(player.InCarId)) return;
 
         _udpEndpoints[msg.id] = remote;
         World.UpdatePlayerPosition(msg.id, msg.x, msg.y, msg.z, msg.rotY);
@@ -324,6 +329,7 @@ public class UnityGameServer : MonoBehaviour
         if (!IsValid(msg.ix) || !IsValid(msg.iz) || !IsValid(msg.rotY)) return;
 
         _udpEndpoints[msg.id] = remote;
+        _inputDrivenPlayers.Add(msg.id);
         PlayerInputReceived?.Invoke(msg.id, Mathf.Clamp(msg.ix, -1f, 1f), Mathf.Clamp(msg.iz, -1f, 1f), msg.rotY);
     }
 

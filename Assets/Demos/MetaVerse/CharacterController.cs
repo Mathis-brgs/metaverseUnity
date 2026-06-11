@@ -223,8 +223,10 @@ public class CharacterController : MonoBehaviour
 
       bool entered = TryEnterNearestCar();
       if (entered && Net != null && Net.HasSession) {
-        // carId vide : le serveur choisit la voiture la plus proche du joueur.
-        Net.SendCarEnter("");
+        string carId = currentCar != null && !string.IsNullOrEmpty(currentCar.ServerId)
+          ? currentCar.ServerId
+          : currentCar != null ? currentCar.gameObject.name : "";
+        Net.SendCarEnter(carId);
       }
     }
 

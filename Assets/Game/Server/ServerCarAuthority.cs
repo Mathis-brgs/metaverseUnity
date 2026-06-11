@@ -88,6 +88,7 @@ public class ServerCarAuthority : MonoBehaviour
             : FindNearestFreeCar(player);
 
         if (car == null) return;
+        if (!IsCarEnterAllowed(player, car)) return;
         string resolvedId = car.ServerId;
 
         if (!_server.World.TryEnterCar(resolvedId, playerId)) return;
@@ -167,6 +168,16 @@ public class ServerCarAuthority : MonoBehaviour
         }
 
         return best;
+    }
+
+    bool IsCarEnterAllowed(PlayerState player, DrivableCar car)
+    {
+        if (car == null) return false;
+        if (_server.World.Cars.TryGetValue(car.ServerId, out var cs) && !string.IsNullOrEmpty(cs.DriverId))
+            return false;
+
+        Vector3 playerPos = new Vector3(player.X, player.Y, player.Z);
+        return (car.transform.position - playerPos).sqrMagnitude <= EnterRadius * EnterRadius;
     }
 
     ServerPlayerProxy FindProxy(string playerId)
