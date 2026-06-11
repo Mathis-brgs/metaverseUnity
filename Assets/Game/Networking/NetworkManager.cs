@@ -321,6 +321,9 @@ public class NetworkManager : MonoBehaviour
             case "PLAYER_LEFT":
                 OnPlayerLeft?.Invoke(JsonUtility.FromJson<PlayerLeftMessage>(json));
                 break;
+            case "STATE":
+                OnState?.Invoke(JsonUtility.FromJson<StateMessage>(json));
+                break;
             case "BONUS_TAKEN":
                 OnBonusTaken?.Invoke(JsonUtility.FromJson<BonusTakenMessage>(json));
                 break;

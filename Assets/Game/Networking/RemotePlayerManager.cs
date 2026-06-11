@@ -27,6 +27,10 @@ public class RemotePlayerManager : MonoBehaviour
     readonly Dictionary<string, float> _targetRotY = new Dictionary<string, float>();
     readonly Dictionary<string, bool> _inCar = new Dictionary<string, bool>();
     readonly Dictionary<string, DrivableCar> _carsByName = new Dictionary<string, DrivableCar>();
+    readonly Dictionary<string, Animator> _animators = new Dictionary<string, Animator>();
+    readonly Dictionary<string, Vector3> _prevStatePos = new Dictionary<string, Vector3>();
+    const float StateInterval = 0.05f; // 20 Hz — aligné avec le serveur
+    const float WalkSpeedRef = 3f;     // CharacterController.WalkSpeed par défaut
 
     void Awake()
     {
@@ -77,6 +81,8 @@ public class RemotePlayerManager : MonoBehaviour
         _targetPos.Remove(msg.id);
         _targetRotY.Remove(msg.id);
         _inCar.Remove(msg.id);
+        _animators.Remove(msg.id);
+        _prevStatePos.Remove(msg.id);
     }
 
     void Update()
@@ -118,7 +124,15 @@ public class RemotePlayerManager : MonoBehaviour
 
                 if (!inCar)
                 {
-                    _targetPos[p.id] = new Vector3(p.x, p.y, p.z);
+                    var newPos = new Vector3(p.x, p.y, p.z);
+                    if (_prevStatePos.TryGetValue(p.id, out var prev))
+                    {
+                        float walkAmount = Mathf.Clamp01(Vector3.Distance(prev, newPos) / (StateInterval * WalkSpeedRef));
+                        if (_animators.TryGetValue(p.id, out var anim) && anim != null)
+                            anim.SetFloat("Walk", walkAmount);
+                    }
+                    _prevStatePos[p.id] = newPos;
+                    _targetPos[p.id] = newPos;
                     _targetRotY[p.id] = p.rotY;
                 }
             }
@@ -184,9 +198,14 @@ public class RemotePlayerManager : MonoBehaviour
         if (controller != null)
             controller.enabled = false;
 
+        var anim = go.GetComponentInChildren<Animator>();
+        if (anim != null) _animators[id] = anim;
+
+        var startPos = new Vector3(x, y, z);
         _spawned[id] = go;
-        _targetPos[id] = new Vector3(x, y, z);
+        _targetPos[id] = startPos;
         _targetRotY[id] = rotY;
+        _prevStatePos[id] = startPos;
     }
 
     GameObject FindPrefab(string characterName)

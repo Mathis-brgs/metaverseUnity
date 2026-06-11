@@ -280,6 +280,7 @@ public class UnityGameServer : MonoBehaviour
                 IPEndPoint remote = new IPEndPoint(IPAddress.Any, 0);
                 byte[] data = _udp.Receive(ref remote);
                 string json = Encoding.UTF8.GetString(data);
+                Debug.Log($"[UDP] reçu {data.Length}b de {remote}");
                 _udpInbox.Enqueue(new UdpPacket { Json = json, Remote = remote });
             }
             catch (SocketException) { /* socket fermé */ }
@@ -399,6 +400,8 @@ public class UnityGameServer : MonoBehaviour
         var players = new List<NetPlayerPosition>();
         foreach (var p in World.Players.Values)
         {
+            // On n'envoie la position que si on a déjà reçu un MOVE/INPUT (position réelle, pas (0,0,0) par défaut)
+            if (!_udpEndpoints.ContainsKey(p.Id)) continue;
             players.Add(new NetPlayerPosition
             {
                 id = p.Id, x = p.X, y = p.Y, z = p.Z, rotY = p.RotY, inCarId = p.InCarId ?? ""
@@ -412,13 +415,8 @@ public class UnityGameServer : MonoBehaviour
         }
 
         var state = new StateMessage { type = "STATE", players = players.ToArray(), cars = cars.ToArray() };
-        byte[] data = Encoding.UTF8.GetBytes(JsonUtility.ToJson(state));
-
-        foreach (var ep in _udpEndpoints.Values)
-        {
-            try { _udp.Send(data, data.Length, ep); }
-            catch (Exception) { }
-        }
+        // STATE envoyé via TCP (Fly.io ne SNAT pas le UDP sortant, les clients ne reçoivent pas les réponses UDP)
+        Broadcast(state);
     }
 
     // ---------------- Envoi TCP ----------------
