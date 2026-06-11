@@ -238,6 +238,9 @@ public class DrivableCar : MonoBehaviour
 
     public void ApplyNetworkTransform(Vector3 position, float rotY)
     {
+      // Joueur local au volant : il est autoritaire, on ignore les corrections serveur.
+      if (driver != null) return;
+
       _netTargetPos = position;
       _netTargetRotY = rotY;
       if (!_hasNetTarget)

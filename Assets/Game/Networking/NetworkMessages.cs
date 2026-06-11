@@ -104,6 +104,12 @@ public class InputMessage
     public float ix;
     public float iz;
     public float rotY;
+    // Position de la voiture quand le joueur conduit (client autoritaire).
+    public bool inCar;
+    public float carX;
+    public float carY;
+    public float carZ;
+    public float carRotY;
 }
 
 [Serializable]

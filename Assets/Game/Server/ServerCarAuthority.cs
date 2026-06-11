@@ -140,15 +140,21 @@ public class ServerCarAuthority : MonoBehaviour
             {
                 if (!string.IsNullOrEmpty(carState.DriverId) && car.IsNetworkDriven)
                 {
+                    // Position déjà mise à jour par HandleInput (client autoritaire).
+                    // On applique quand même l'input pour la simulation physique serveur.
                     Vector2 input = _driverInput.TryGetValue(carState.DriverId, out var v) ? v : Vector2.zero;
                     car.SetNetworkInput(input);
+                    // Ne pas écraser carState avec la physique serveur : le client est autoritaire.
                 }
-
-                Vector3 p = car.transform.position;
-                carState.X = p.x;
-                carState.Y = p.y;
-                carState.Z = p.z;
-                carState.RotY = car.transform.eulerAngles.y;
+                else
+                {
+                    // Pas de conducteur : la physique serveur fait autorité.
+                    Vector3 p = car.transform.position;
+                    carState.X = p.x;
+                    carState.Y = p.y;
+                    carState.Z = p.z;
+                    carState.RotY = car.transform.eulerAngles.y;
+                }
             }
         }
     }

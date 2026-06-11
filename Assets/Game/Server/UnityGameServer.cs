@@ -325,6 +325,18 @@ public class UnityGameServer : MonoBehaviour
 
         _udpEndpoints[msg.id] = remote;
         PlayerInputReceived?.Invoke(msg.id, Mathf.Clamp(msg.ix, -1f, 1f), Mathf.Clamp(msg.iz, -1f, 1f), msg.rotY);
+
+        // Le client est autoritaire sur la position de la voiture qu'il conduit.
+        if (msg.inCar && World.Players.TryGetValue(msg.id, out var player)
+            && !string.IsNullOrEmpty(player.InCarId)
+            && World.Cars.TryGetValue(player.InCarId, out var carState)
+            && IsValid(msg.carX) && IsValid(msg.carY) && IsValid(msg.carZ))
+        {
+            carState.X = msg.carX;
+            carState.Y = msg.carY;
+            carState.Z = msg.carZ;
+            carState.RotY = msg.carRotY;
+        }
     }
 
     // ---------------- Autorité gameplay (appelée par la scène serveur) ----------------

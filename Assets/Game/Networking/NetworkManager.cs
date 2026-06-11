@@ -252,22 +252,34 @@ public class NetworkManager : MonoBehaviour
         _inputTimer = 0f;
 
         float ix, iz;
-        if (InputSource.IsDrivingCar)
+        bool inCar = InputSource.IsDrivingCar;
+        float carX = 0, carY = 0, carZ = 0, carRotY = 0;
+
+        if (inCar)
         {
-            // En voiture : ix = braquage, iz = accélération (entrée brute).
             Vector2 raw = InputSource.GetMoveInput();
             ix = raw.x;
             iz = raw.y;
+            var car = InputSource.CurrentCar;
+            if (car != null)
+            {
+                var cp = car.transform.position;
+                carX = cp.x; carY = cp.y; carZ = cp.z;
+                carRotY = car.transform.eulerAngles.y;
+            }
         }
         else
         {
-            // À pied : direction monde relative caméra.
             Vector3 dir = InputSource.GetDesiredWorldMove();
             ix = dir.x;
             iz = dir.z;
         }
 
-        SendInput(ix, iz, InputSource.transform.eulerAngles.y);
+        SendUdp(new InputPayload {
+            type = "INPUT", id = MyPlayerId,
+            ix = ix, iz = iz, rotY = InputSource.transform.eulerAngles.y,
+            inCar = inCar, carX = carX, carY = carY, carZ = carZ, carRotY = carRotY
+        });
     }
 
     void OnTcpChunkReceived(string chunk)
@@ -403,6 +415,11 @@ public class NetworkManager : MonoBehaviour
         public float ix;
         public float iz;
         public float rotY;
+        public bool inCar;
+        public float carX;
+        public float carY;
+        public float carZ;
+        public float carRotY;
     }
 
     [Serializable]

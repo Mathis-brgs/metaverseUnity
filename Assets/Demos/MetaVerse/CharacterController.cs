@@ -201,9 +201,8 @@ public class CharacterController : MonoBehaviour
       return dir;
     }
 
-    public bool IsDrivingCar {
-      get { return isDriving; }
-    }
+    public bool IsDrivingCar => isDriving;
+    public DrivableCar CurrentCar => currentCar;
 
     NetworkManager _net;
     NetworkManager Net {
