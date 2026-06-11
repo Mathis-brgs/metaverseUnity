@@ -18,7 +18,8 @@ public class DrivableCar : MonoBehaviour
     public LayerMask ObstacleLayers = ~0;
     public float HornInterval = 1.6f;
     public string EngineSoundFileName = "SFX_Cars.mp3";
-    public float EngineVolume = 0.22f;
+    public float EngineVolume = 0.5f;
+    public float EngineSoundStartOffset = 2f;
     public Vector3 SeatOffset = new Vector3(0f, 1.1f, 0f);
     public Vector3 ExitOffset = new Vector3(1.8f, 0f, 0f);
     public Transform Seat;
@@ -31,6 +32,7 @@ public class DrivableCar : MonoBehaviour
     bool parked;
     bool stoppedByTraffic;
     bool sceneAnimationStarted;
+    bool wantsEngineSound;
     float nextHornTime;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -87,21 +89,23 @@ public class DrivableCar : MonoBehaviour
         Seat = seatObject.transform;
       }
 
-      hornSource = GetComponent<AudioSource>();
-      if (hornSource == null) {
-        hornSource = gameObject.AddComponent<AudioSource>();
-      }
+      Transform audioAnchor = GetAudioAnchor();
+      hornSource = audioAnchor.gameObject.AddComponent<AudioSource>();
 
       hornSource.playOnAwake = false;
       hornSource.spatialBlend = 1f;
       hornSource.volume = 0.35f;
+      hornSource.minDistance = 3f;
+      hornSource.maxDistance = 24f;
       hornSource.clip = CreateHornClip();
 
-      engineSource = gameObject.AddComponent<AudioSource>();
+      engineSource = audioAnchor.gameObject.AddComponent<AudioSource>();
       engineSource.playOnAwake = false;
       engineSource.loop = true;
       engineSource.spatialBlend = 1f;
       engineSource.volume = EngineVolume;
+      engineSource.minDistance = 4f;
+      engineSource.maxDistance = 32f;
       StartCoroutine(LoadEngineSound());
 
       IgnoreBonusCollisions();
@@ -115,6 +119,7 @@ public class DrivableCar : MonoBehaviour
         parked = false;
         stoppedByTraffic = false;
         SetSceneAnimationPlaying(false);
+        SetEngineSoundPlaying(true);
         DriveWithInput(driver.GetMoveInput());
         return;
       }
@@ -186,10 +191,7 @@ public class DrivableCar : MonoBehaviour
       }
 
       if (input.sqrMagnitude < 0.001f) {
-        SetEngineSoundPlaying(false);
         StopNow();
-      } else {
-        SetEngineSoundPlaying(true);
       }
     }
 
@@ -249,21 +251,42 @@ public class DrivableCar : MonoBehaviour
 
       if (loadedClip != null && engineSource != null) {
         engineSource.clip = loadedClip;
+        SetEngineSoundPlaying(wantsEngineSound);
       }
     }
 
     void SetEngineSoundPlaying(bool shouldPlay)
     {
+      wantsEngineSound = shouldPlay;
       if (engineSource == null || engineSource.clip == null) { return; }
 
       engineSource.volume = EngineVolume;
       if (shouldPlay) {
         if (!engineSource.isPlaying) {
+          engineSource.time = GetEngineStartTime();
           engineSource.Play();
         }
       } else if (engineSource.isPlaying) {
         engineSource.Stop();
       }
+    }
+
+    float GetEngineStartTime()
+    {
+      if (engineSource == null || engineSource.clip == null) {
+        return 0f;
+      }
+
+      return Mathf.Clamp(EngineSoundStartOffset, 0f, Mathf.Max(0f, engineSource.clip.length - 0.01f));
+    }
+
+    Transform GetAudioAnchor()
+    {
+      if (sceneAnimation != null) {
+        return sceneAnimation.transform;
+      }
+
+      return transform;
     }
 
     bool ShouldStopForRedLight()

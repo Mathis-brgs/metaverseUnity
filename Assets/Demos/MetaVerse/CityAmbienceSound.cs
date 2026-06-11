@@ -2,13 +2,19 @@ using UnityEngine;
 
 public class CityAmbienceSound : MonoBehaviour
 {
-    public string AmbienceFileName = "SFX_Brouhaha.mp3";
-    public float Volume = 0.22f;
+    public string AmbienceFileName = "traffic_city.mp3";
+    public string VoiceFileName = "voix.mp3";
+    public float Volume = 0.5f;
+    public float VoiceVolume = 0.16f;
     public float RestartAtPercent = 0.3f;
+    public float VoiceRestartAtPercent = 0.92f;
 
     AudioSource audioSource;
+    AudioSource voiceSource;
     AudioClip ambienceClip;
+    AudioClip voiceClip;
     float restartTime;
+    float voiceRestartTime;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void CreateAmbience()
@@ -22,6 +28,8 @@ public class CityAmbienceSound : MonoBehaviour
     void Awake()
     {
       audioSource = CreateAmbienceSource();
+      voiceSource = CreateAmbienceSource();
+      voiceSource.volume = VoiceVolume;
     }
 
     void Start()
@@ -42,6 +50,18 @@ public class CityAmbienceSound : MonoBehaviour
       audioSource.time = 0f;
       audioSource.volume = Volume;
       audioSource.Play();
+
+      AudioClip loadedVoiceClip = null;
+      yield return MetaVerseSoundLibrary.LoadClip(VoiceFileName, clip => loadedVoiceClip = clip);
+
+      if (loadedVoiceClip == null) { yield break; }
+
+      voiceClip = loadedVoiceClip;
+      voiceRestartTime = Mathf.Max(0.01f, Mathf.Clamp01(VoiceRestartAtPercent) * voiceClip.length);
+      voiceSource.clip = voiceClip;
+      voiceSource.time = 0f;
+      voiceSource.volume = VoiceVolume;
+      voiceSource.Play();
     }
 
     AudioSource CreateAmbienceSource()
@@ -56,10 +76,12 @@ public class CityAmbienceSound : MonoBehaviour
 
     void Update()
     {
-      if (audioSource == null || ambienceClip == null || !audioSource.isPlaying) { return; }
-
-      if (audioSource.time >= restartTime) {
+      if (audioSource != null && ambienceClip != null && audioSource.isPlaying && audioSource.time >= restartTime) {
         audioSource.time = 0f;
+      }
+
+      if (voiceSource != null && voiceClip != null && voiceSource.isPlaying && voiceSource.time >= voiceRestartTime) {
+        voiceSource.time = 0f;
       }
     }
 }

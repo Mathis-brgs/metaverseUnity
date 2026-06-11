@@ -8,6 +8,7 @@
 - Les joueurs peuvent prendre la voiture (ne peux pas prendre de cube dans une voiture)
 - Les joueurs peuvent se battre (au bout de 3 coups, l'autre tombe = ralentissement)
 - changement sur le mouvement des joueurs (en rapport avec la caméra)
+- Les joueurs auront chacun un skin propre à eux
 ## Les voitures
 - Les voitures s'arrêtent devant les joueurs et reprennent la route quand il n'y a plus d'obstacle
 - 
@@ -18,3 +19,4 @@ Les états réseau ont été ajoutés :
 - WorldState : état complet du monde avec les joueurs et les bonus
 
 - Les éléments du jeu sont dynamique et s'adapte selon le nombre de joueur
+- Limitation des joueurs à 6 (nombre de skin présent dans le set donné)

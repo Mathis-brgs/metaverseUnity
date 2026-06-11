@@ -1,0 +1,487 @@
+%PDF-1.4
+%âãÏÓ
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [8 0 R 10 0 R 12 0 R 14 0 R 16 0 R 18 0 R 20 0 R 22 0 R 24 0 R] /Count 9 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>
+endobj
+7 0 obj
+<< /Length 4394 >>
+stream
+BT /F2 20 Tf 1 0 0 1 48.00 780.00 Tm (Support d'oral - Projet MetaVerse Unity) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 732.00 Tm (1. Présentation rapide du projet) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 700.00 Tm (Le projet est une scène Unity de type mini monde ouvert multijoueur. L'objectif était) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 686.00 Tm (d'améliorer l'expérience de jeu autour de plusieurs axes :) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 665.00 Tm (- déplacement des personnages plus naturel ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 651.00 Tm (- caméra contrôlable à la souris ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 637.00 Tm (- interactions entre joueurs avec combat et effets de dégâts ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 623.00 Tm (- objets bonus à ramasser avec score et bonus de vitesse ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 609.00 Tm (- véhicules utilisables par les joueurs ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 595.00 Tm (- circulation autonome avec feux rouges, obstacles et klaxon ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 581.00 Tm (- ambiance sonore de ville ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 567.00 Tm (- skins de personnages aléatoires sans doublon ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 553.00 Tm (- états réseau préparés pour synchroniser les joueurs et les bonus.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 532.00 Tm (L'idée générale est de transformer une scène de démonstration en une expérience plus proche) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 518.00 Tm (d'un petit jeu urbain, avec des règles de gameplay visibles et compréhensibles.) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 488.00 Tm (2. Déplacement et caméra) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 456.00 Tm (Au départ, le déplacement était moins intuitif : le personnage pouvait tourner sans) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 442.00 Tm (réellement se déplacer dans la direction attendue. Le déplacement a été modifié pour suivre) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 428.00 Tm (l'orientation de la caméra.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 407.00 Tm (Quand le joueur appuie sur avancer, le personnage avance maintenant dans la direction) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 393.00 Tm (regardée par la caméra, pas seulement dans l'axe global de la scène.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 372.00 Tm (Extrait important :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 347.00 Tm (Vector3 GetMovementDirection\(Vector2 input\)) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 336.00 Tm ({) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 325.00 Tm (  if \(!UseCameraRelativeMovement || Camera.main == null\) {) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 314.00 Tm (    return new Vector3\(input.x * StrafeSpeed, 0f, input.y * WalkSpeed\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 303.00 Tm (  }) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 292.00 Tm () Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 281.00 Tm (  Transform cameraTransform = Camera.main.transform;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 270.00 Tm (  Vector3 cameraForward = Vector3.ProjectOnPlane\(cameraTransform.forward,) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 259.00 Tm (Vector3.up\).normalized;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 248.00 Tm (  Vector3 cameraRight = Vector3.ProjectOnPlane\(cameraTransform.right, Vector3.up\).normalized;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 237.00 Tm () Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 226.00 Tm (  return cameraRight * input.x * StrafeSpeed + cameraForward * input.y * WalkSpeed;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 215.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 190.00 Tm (Ce code utilise `ProjectOnPlane` pour ignorer l'inclinaison verticale de la caméra. On garde) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 176.00 Tm (seulement la direction horizontale. Cela évite qu'un personnage avance vers le sol ou vers) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 162.00 Tm (le ciel si la caméra est inclinée.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 141.00 Tm (Le personnage regarde aussi dans la direction où il se déplace :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 116.00 Tm (if \(movement.sqrMagnitude > 0.001f\) {) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 105.00 Tm (  Quaternion targetRotation = Quaternion.LookRotation\(movement.normalized, Vector3.up\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 94.00 Tm (  Quaternion nextRotation = Quaternion.RotateTowards\(rb.rotation, targetRotation, TurnSpeed *) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 83.00 Tm (Time.fixedDeltaTime\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 72.00 Tm (  rb.MoveRotation\(nextRotation\);) Tj ET
+BT /F1 8 Tf 1 0 0 1 507.00 28 Tm (Page 1 / 9) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 3745 >>
+stream
+BT /F3 8 Tf 1 0 0 1 58.00 790.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 765.00 Tm (Point à dire à l'oral : on utilise `Rigidbody.MoveRotation` et `Rigidbody.MovePosition` dans) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 751.00 Tm (`FixedUpdate`, ce qui est plus adapté à un objet contrôlé par la physique Unity.) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 721.00 Tm (3. Combat entre joueurs) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 689.00 Tm (Un système de combat simple a été ajouté. Chaque joueur peut attaquer avec une touche. Si un) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 675.00 Tm (autre personnage est dans la zone d'attaque, il reçoit un effet de dégâts.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 654.00 Tm (Effets ajoutés :) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 633.00 Tm (- ralentissement temporaire après un coup ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 619.00 Tm (- petite poussée avec `AddForce` ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 605.00 Tm (- couleur rouge pour montrer les dégâts ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 591.00 Tm (- animation de hit ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 577.00 Tm (- combo : après plusieurs coups, le joueur tombe au sol puis se relève.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 556.00 Tm (Extrait :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 531.00 Tm (void ReceiveHit\(Vector3 attackerPosition, float duration\)) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 520.00 Tm ({) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 509.00 Tm (  if \(isKnockedDown\) { return; }) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 498.00 Tm () Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 487.00 Tm (  slowedUntil = Mathf.Max\(slowedUntil, Time.time + duration\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 476.00 Tm () Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 465.00 Tm (  Vector3 knockbackDirection = transform.position - attackerPosition;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 454.00 Tm (  knockbackDirection.y = 0f;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 443.00 Tm (  if \(knockbackDirection.sqrMagnitude > 0.001f\) {) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 432.00 Tm (    rb.AddForce\(knockbackDirection.normalized * AttackKnockback, ForceMode.VelocityChange\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 421.00 Tm (  }) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 410.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 385.00 Tm (Point à dire à l'oral : on ne crée pas un système de vie complet, mais on crée déjà une) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 371.00 Tm (boucle de gameplay lisible : attaquer, gêner l'autre joueur, lui faire perdre du temps, puis) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 357.00 Tm (profiter de ce temps pour récupérer des cubes.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 336.00 Tm (Le combo est contrôlé par :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 311.00 Tm (public int HitsBeforeKnockDown = 3;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 300.00 Tm (public float HitComboWindow = 2f;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 275.00 Tm (Cela permet de dire : "si un joueur reçoit plusieurs coups dans une fenêtre courte, il tombe) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 261.00 Tm (au sol.") Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 231.00 Tm (4. Cubes bonus, score et vitesse) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 199.00 Tm (Les cubes bonus donnent maintenant :) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 178.00 Tm (- 1 point ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 164.00 Tm (- un message en haut de l'écran ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 150.00 Tm (- une augmentation de vitesse pour le joueur qui ramasse le cube.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 129.00 Tm (Extrait :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 104.00 Tm (if \(cScore != null\) {) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 93.00 Tm (  isCollected = true;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 82.00 Tm (  enabled = false;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 71.00 Tm (  cScore.AddScore\(Points\);) Tj ET
+BT /F1 8 Tf 1 0 0 1 507.00 28 Tm (Page 2 / 9) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 3900 >>
+stream
+BT /F3 8 Tf 1 0 0 1 58.00 790.00 Tm (  CharacterController controller = FindCollectorController\(other, cScore\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 779.00 Tm (  if \(controller != null\) {) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 768.00 Tm (    controller.ApplyBonusSpeedBoost\(\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 757.00 Tm (  }) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 746.00 Tm (  ScorePanelHUD.ShowPickupMessage\(controller\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 735.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 710.00 Tm (Le booléen `isCollected` évite qu'un cube soit compté plusieurs fois si plusieurs collisions) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 696.00 Tm (arrivent au même moment.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 675.00 Tm (La vitesse augmente progressivement :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 650.00 Tm (public float BonusSpeedIncrement = 0.5f;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 639.00 Tm (public float MaxBonusSpeedMultiplier = 2f;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 628.00 Tm (public float BonusSpeedDuration = 5f;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 603.00 Tm (Quand un joueur ramasse un cube, le multiplicateur augmente, mais reste limité. Cela évite) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 589.00 Tm (qu'un joueur devienne trop rapide et casse l'équilibrage.) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 559.00 Tm (5. Génération de cubes supplémentaires) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 527.00 Tm (Des cubes bonus supplémentaires sont générés automatiquement au lancement de la scène.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 506.00 Tm (Le script `ExtraBonusCubes` place les cubes dans une zone définie :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 481.00 Tm (public int BonusCount = 8;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 470.00 Tm (public int RandomSeed = 12345;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 459.00 Tm (public Vector2 AreaCenter = new Vector2\(250f, 255f\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 448.00 Tm (public Vector2 AreaSize = new Vector2\(42f, 42f\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 437.00 Tm (public float MinimumDistanceBetweenCubes = 4f;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 412.00 Tm (La génération vérifie que les cubes ne sont pas trop proches :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 387.00 Tm (bool CanPlaceAt\(Vector3 position, Vector3[] existingPositions, int placedCount\)) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 376.00 Tm ({) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 365.00 Tm (  float minDistanceSqr = MinimumDistanceBetweenCubes * MinimumDistanceBetweenCubes;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 354.00 Tm (  for \(int i = 0; i < placedCount; i++\) {) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 343.00 Tm (    Vector3 diff = position - existingPositions[i];) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 332.00 Tm (    diff.y = 0f;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 321.00 Tm (    if \(diff.sqrMagnitude < minDistanceSqr\) {) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 310.00 Tm (      return false;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 299.00 Tm (    }) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 288.00 Tm (  }) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 277.00 Tm () Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 266.00 Tm (  return true;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 255.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 230.00 Tm (Point à dire à l'oral : on utilise la distance au carré \(`sqrMagnitude`\) pour éviter un) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 216.00 Tm (calcul de racine carrée inutile. C'est une petite optimisation classique.) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 186.00 Tm (6. Interface de score) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 154.00 Tm (Un panneau de score est créé automatiquement au lancement de la scène. Il affiche le nombre) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 140.00 Tm (de joueurs et leur score.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 119.00 Tm (Exemple :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 94.00 Tm (Joueurs : 2 / 6) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 83.00 Tm (Joueur 1 : 1) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 72.00 Tm (Joueur 2 : 0) Tj ET
+BT /F1 8 Tf 1 0 0 1 507.00 28 Tm (Page 3 / 9) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> /Contents 11 0 R >>
+endobj
+13 0 obj
+<< /Length 3660 >>
+stream
+BT /F1 10.5 Tf 1 0 0 1 48.00 790.00 Tm (Le panneau n'est plus codé uniquement pour deux joueurs. Il dépend du nombre de skins) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 776.00 Tm (disponibles :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 751.00 Tm (public int MaxDisplayedPlayers = CharacterSkinCatalog.SkinCount;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 726.00 Tm (Cela permet de garder une cohérence : si 6 skins existent, alors la limite affichée est 6.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 705.00 Tm (Un message apparaît aussi quand un joueur ramasse un cube :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 680.00 Tm (pickupMessageText.text = GetPlayerDisplayName\(player.Player\) + " a ramassé un cube";) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 669.00 Tm (pickupMessageText.enabled = true;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 658.00 Tm (pickupMessageUntil = Time.time + PickupMessageDuration;) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 624.00 Tm (7. Voitures pilotables) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 592.00 Tm (Les voitures peuvent être utilisées par les joueurs. Le joueur peut entrer dans une voiture) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 578.00 Tm (proche, la conduire, puis en sortir.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 557.00 Tm (Quand un joueur entre dans une voiture :) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 536.00 Tm (- la voiture s'arrête ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 522.00 Tm (- le joueur devient enfant du siège de la voiture ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 508.00 Tm (- le personnage est caché ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 494.00 Tm (- le Rigidbody du joueur devient kinematic.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 473.00 Tm (Extrait :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 448.00 Tm (public void EnterCar\(DrivableCar car\)) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 437.00 Tm ({) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 426.00 Tm (  currentCar = car;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 415.00 Tm (  isDriving = true;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 404.00 Tm (  rb.isKinematic = true;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 393.00 Tm (  SetCharacterVisible\(false\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 382.00 Tm (  transform.SetParent\(car.Seat, false\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 371.00 Tm (  transform.localPosition = Vector3.zero;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 360.00 Tm (  transform.localRotation = Quaternion.identity;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 349.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 324.00 Tm (Quand le joueur sort, la voiture peut rester garée :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 299.00 Tm (public bool ParkAfterDriverExit = true;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 274.00 Tm (Cela évite que la voiture reparte toute seule après la sortie du joueur.) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 244.00 Tm (8. Circulation autonome, obstacles et feux rouges) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 212.00 Tm (Les voitures qui roulent automatiquement doivent respecter certaines règles :) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 191.00 Tm (- s'arrêter au feu rouge ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 177.00 Tm (- s'arrêter devant un obstacle ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 163.00 Tm (- ne pas considérer les cubes bonus comme des obstacles ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 149.00 Tm (- klaxonner si elles sont bloquées derrière une voiture ou un personnage.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 128.00 Tm (Extrait :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 103.00 Tm (void DriveAutonomously\(\)) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 92.00 Tm ({) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 81.00 Tm (  bool blockedByObstacle = ShouldStopForObstacleAhead\(Mathf.Max\(CarLookAhead,) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 70.00 Tm (ObstacleLookAhead\)\);) Tj ET
+BT /F1 8 Tf 1 0 0 1 507.00 28 Tm (Page 4 / 9) Tj ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> /Contents 13 0 R >>
+endobj
+15 0 obj
+<< /Length 3828 >>
+stream
+BT /F3 8 Tf 1 0 0 1 58.00 790.00 Tm (  if \(ShouldStopForRedLight\(\) || blockedByObstacle\) {) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 779.00 Tm (    stoppedByTraffic = true;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 768.00 Tm (    SetSceneAnimationPlaying\(false\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 757.00 Tm (    SetEngineSoundPlaying\(false\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 746.00 Tm (    StopNow\(\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 735.00 Tm () Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 724.00 Tm (    if \(blockedByObstacle\) {) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 713.00 Tm (      Honk\(\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 702.00 Tm (    }) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 691.00 Tm (    return;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 680.00 Tm (  }) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 669.00 Tm () Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 658.00 Tm (  stoppedByTraffic = false;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 647.00 Tm (  SetSceneAnimationPlaying\(true\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 636.00 Tm (  SetEngineSoundPlaying\(true\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 625.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 600.00 Tm (Pour ignorer les cubes :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 575.00 Tm (if \(hit.collider.GetComponentInParent<Bonus>\(\) != null\) { continue; }) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 550.00 Tm (Point à dire à l'oral : on distingue les voitures autonomes des voitures conduites par le) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 536.00 Tm (joueur. Une voiture conduite par un joueur garde sa liberté, comme dans GTA. Les règles de) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 522.00 Tm (circulation s'appliquent surtout aux voitures automatiques.) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 492.00 Tm (9. Sons de ville et sons de voitures) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 460.00 Tm (Plusieurs sons ont été ajoutés :) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 439.00 Tm (- ambiance de ville ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 425.00 Tm (- voix de foule ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 411.00 Tm (- moteur de voiture ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 397.00 Tm (- klaxon généré par code.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 376.00 Tm (Les sons MP3 sont chargés depuis :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 351.00 Tm (Assets/Demos/MetaVerse/Sound) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 326.00 Tm (Le chargement est centralisé dans `MetaVerseSoundLibrary` :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 301.00 Tm (string path = Path.Combine\(Application.dataPath, "Demos", "MetaVerse", "Sound", fileName\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 290.00 Tm (string url = "file://" + path.Replace\("\\\\", "/"\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 279.00 Tm () Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 268.00 Tm (using \(UnityWebRequest request = UnityWebRequestMultimedia.GetAudioClip\(url, AudioType.MPEG\)\)) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 257.00 Tm ({) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 246.00 Tm (  yield return request.SendWebRequest\(\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 235.00 Tm (  AudioClip clip = DownloadHandlerAudioClip.GetContent\(request\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 224.00 Tm (  clips[fileName] = clip;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 213.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 188.00 Tm (Point à dire à l'oral : on évite de charger le même son plusieurs fois grâce au dictionnaire) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 174.00 Tm (de cache.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 153.00 Tm (Pour les voitures, le son moteur suit la voiture animée :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 128.00 Tm (Transform GetAudioAnchor\(\)) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 117.00 Tm ({) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 106.00 Tm (  if \(sceneAnimation != null\) {) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 95.00 Tm (    return sceneAnimation.transform;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 84.00 Tm (  }) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 73.00 Tm () Tj ET
+BT /F1 8 Tf 1 0 0 1 507.00 28 Tm (Page 5 / 9) Tj ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> /Contents 15 0 R >>
+endobj
+17 0 obj
+<< /Length 3952 >>
+stream
+BT /F3 8 Tf 1 0 0 1 58.00 790.00 Tm (  return transform;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 779.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 754.00 Tm (Cela corrige le problème où le son restait au point de départ pendant que la voiture animée) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 740.00 Tm (bougeait.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 719.00 Tm (Le son moteur peut aussi commencer plus loin dans le MP3 :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 694.00 Tm (public float EngineSoundStartOffset = 2f;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 683.00 Tm () Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 672.00 Tm (float GetEngineStartTime\(\)) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 661.00 Tm ({) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 650.00 Tm (  return Mathf.Clamp\(EngineSoundStartOffset, 0f, Mathf.Max\(0f, engineSource.clip.length -) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 639.00 Tm (0.01f\)\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 628.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 603.00 Tm (Cela permet de couper le début du fichier audio si les premières secondes ne sont pas) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 589.00 Tm (naturelles.) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 559.00 Tm (10. Skins aléatoires sans doublon) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 527.00 Tm (Les joueurs reçoivent un skin aléatoire au lancement de la map. Les skins disponibles sont) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 513.00 Tm (centralisés :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 488.00 Tm (public const int SkinCount = 6;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 477.00 Tm () Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 466.00 Tm (static readonly CharacterSkinInfo[] Skins = {) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 455.00 Tm (  new CharacterSkinInfo\("barbarian", "Barbare",) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 444.00 Tm ("Assets/Demos/MetaVerse/Prefabs/barbarian.prefab"\),) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 433.00 Tm (  new CharacterSkinInfo\("druid", "Druide", "Assets/Demos/MetaVerse/Prefabs/druid.prefab"\),) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 422.00 Tm (  new CharacterSkinInfo\("engineer", "Ingenieur",) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 411.00 Tm ("Assets/Demos/MetaVerse/Prefabs/engineer.prefab"\),) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 400.00 Tm (  new CharacterSkinInfo\("knight", "Chevalier",) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 389.00 Tm ("Assets/Demos/MetaVerse/Prefabs/knight.prefab"\),) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 378.00 Tm (  new CharacterSkinInfo\("mage", "Mage", "Assets/Demos/MetaVerse/Prefabs/mage.prefab"\),) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 367.00 Tm (  new CharacterSkinInfo\("rogue", "Voleur", "Assets/Demos/MetaVerse/Prefabs/rogue.prefab"\),) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 356.00 Tm (};) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 331.00 Tm (Les skins sont mélangés :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 306.00 Tm (for \(int i = indexes.Count - 1; i > 0; i--\) {) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 295.00 Tm (  int swapIndex = Random.Range\(0, i + 1\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 284.00 Tm (  int current = indexes[i];) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 273.00 Tm (  indexes[i] = indexes[swapIndex];) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 262.00 Tm (  indexes[swapIndex] = current;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 251.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 226.00 Tm (Puis un skin différent est appliqué à chaque joueur.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 205.00 Tm (Un problème rencontré : les prefabs KayKit bruts mettaient les personnages en T-pose car ils) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 191.00 Tm (n'avaient pas d'Animator Controller. La correction a été d'utiliser les prefabs MetaVerse) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 177.00 Tm (déjà configurés avec les animations.) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 147.00 Tm (11. États réseau) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 115.00 Tm (Des classes d'état ont été ajoutées pour préparer la synchronisation réseau.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 94.00 Tm (État joueur :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 69.00 Tm (public class PlayerState) Tj ET
+BT /F1 8 Tf 1 0 0 1 507.00 28 Tm (Page 6 / 9) Tj ET
+endstream
+endobj
+18 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> /Contents 17 0 R >>
+endobj
+19 0 obj
+<< /Length 3324 >>
+stream
+BT /F3 8 Tf 1 0 0 1 58.00 790.00 Tm ({) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 779.00 Tm (  public string Id;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 768.00 Tm (  public string Name;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 757.00 Tm (  public float X;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 746.00 Tm (  public float Y;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 735.00 Tm (  public float Z;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 724.00 Tm (  public float RotY;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 713.00 Tm (  public int Score;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 702.00 Tm (  public string SkinId;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 691.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 666.00 Tm (État bonus :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 641.00 Tm (public class BonusState) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 630.00 Tm ({) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 619.00 Tm (  public string Id;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 608.00 Tm (  public float X;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 597.00 Tm (  public float Y;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 586.00 Tm (  public float Z;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 575.00 Tm (  public bool IsCollected;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 564.00 Tm (}) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 539.00 Tm (Le monde contient les joueurs et les bonus :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 514.00 Tm (public Dictionary<string, PlayerState> Players = new Dictionary<string, PlayerState>\(\);) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 503.00 Tm (public Dictionary<string, BonusState> Bonuses = new Dictionary<string, BonusState>\(\);) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 478.00 Tm (La limite de joueurs dépend des skins :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 453.00 Tm (public int MaxPlayers = CharacterSkinCatalog.SkinCount;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 428.00 Tm (Intérêt : on évite d'avoir plus de joueurs que de designs disponibles, ce qui respecte la) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 414.00 Tm (règle "jamais deux fois le même skin".) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 384.00 Tm (12. Problèmes rencontrés et corrections importantes) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 48.00 346.00 Tm (Voitures stationnées qui avançaient) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 321.00 Tm (Correction : distinguer les voitures qui ont une animation de scène et les voitures garées.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 307.00 Tm (Les voitures garées ne doivent pas rouler automatiquement.) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 48.00 280.00 Tm (Voitures qui traversaient mal la logique d'obstacles) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 255.00 Tm (Correction : les voitures autonomes s'arrêtent devant les personnages et les autres) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 241.00 Tm (voitures, mais ignorent les cubes bonus.) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 48.00 214.00 Tm (Son de voiture qui ne suivait pas) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 189.00 Tm (Correction : placer l'AudioSource sur le `Transform` animé, pas seulement sur le parent de) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 175.00 Tm (la voiture.) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 48.00 148.00 Tm (Bruit moteur seulement au début) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 123.00 Tm (Correction : garder en mémoire que le moteur doit jouer, même si le MP3 n'est pas encore) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 109.00 Tm (chargé :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 84.00 Tm (bool wantsEngineSound;) Tj ET
+BT /F1 8 Tf 1 0 0 1 507.00 28 Tm (Page 7 / 9) Tj ET
+endstream
+endobj
+20 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> /Contents 19 0 R >>
+endobj
+21 0 obj
+<< /Length 3586 >>
+stream
+BT /F1 10.5 Tf 1 0 0 1 48.00 790.00 Tm (Puis relancer le son quand le clip est prêt :) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 765.00 Tm (engineSource.clip = loadedClip;) Tj ET
+BT /F3 8 Tf 1 0 0 1 58.00 754.00 Tm (SetEngineSoundPlaying\(wantsEngineSound\);) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 48.00 723.00 Tm (T-pose sur les skins) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 698.00 Tm (Correction : utiliser les prefabs MetaVerse animés au lieu des prefabs KayKit bruts.) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 48.00 671.00 Tm (Score qui augmentait trop) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 646.00 Tm (Correction : ajouter `isCollected` et désactiver le script du bonus dès la collecte pour) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 632.00 Tm (éviter plusieurs validations.) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 602.00 Tm (13. Ce que je peux dire à l'oral) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 570.00 Tm (Phrase d'introduction possible :) Tj ET
+BT /F4 10.5 Tf 1 0 0 1 60.00 549.00 Tm ("Nous avons transformé une scène de démonstration Unity en une scène plus jouable,) Tj ET
+BT /F4 10.5 Tf 1 0 0 1 60.00 535.00 Tm (avec des personnages contrôlables, des bonus, un score, des véhicules, de la) Tj ET
+BT /F4 10.5 Tf 1 0 0 1 60.00 521.00 Tm (circulation autonome, des sons et une base d'état réseau.") Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 500.00 Tm (Phrase sur la caméra :) Tj ET
+BT /F4 10.5 Tf 1 0 0 1 60.00 479.00 Tm ("Le déplacement dépend de la caméra, ce qui rend le contrôle plus naturel. Le joueur) Tj ET
+BT /F4 10.5 Tf 1 0 0 1 60.00 465.00 Tm (avance dans la direction qu'il regarde.") Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 444.00 Tm (Phrase sur les voitures :) Tj ET
+BT /F4 10.5 Tf 1 0 0 1 60.00 423.00 Tm ("Les voitures autonomes respectent les obstacles et les feux, mais les voitures) Tj ET
+BT /F4 10.5 Tf 1 0 0 1 60.00 409.00 Tm (conduites par les joueurs gardent une liberté totale. Cela sépare clairement l'IA de) Tj ET
+BT /F4 10.5 Tf 1 0 0 1 60.00 395.00 Tm (circulation du gameplay joueur.") Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 374.00 Tm (Phrase sur les sons :) Tj ET
+BT /F4 10.5 Tf 1 0 0 1 60.00 353.00 Tm ("Les sons sont chargés dynamiquement depuis le dossier Sound. Les AudioSource des) Tj ET
+BT /F4 10.5 Tf 1 0 0 1 60.00 339.00 Tm (voitures sont attachées au bon objet pour que le son suive la voiture en mouvement.") Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 318.00 Tm (Phrase sur le réseau :) Tj ET
+BT /F4 10.5 Tf 1 0 0 1 60.00 297.00 Tm ("Les états PlayerState, BonusState et WorldState permettent de préparer la) Tj ET
+BT /F4 10.5 Tf 1 0 0 1 60.00 283.00 Tm (synchronisation : position, rotation, score, skin choisi et bonus collectés.") Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 253.00 Tm (14. Améliorations possibles) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 221.00 Tm (Pour aller plus loin, on pourrait :) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 200.00 Tm (- synchroniser complètement les skins côté serveur ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 186.00 Tm (- ajouter une vraie interface de sélection ou d'attente multijoueur ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 172.00 Tm (- remplacer les sons MP3 par des boucles audio mieux découpées ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 158.00 Tm (- ajouter des animations de montée et descente de voiture ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 144.00 Tm (- ajouter un vrai système de santé ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 130.00 Tm (- sauvegarder les scores ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 116.00 Tm (- améliorer l'IA des voitures avec un système de chemins plus propre.) Tj ET
+BT /F2 15 Tf 1 0 0 1 48.00 86.00 Tm (15. Conclusion) Tj ET
+BT /F1 8 Tf 1 0 0 1 507.00 28 Tm (Page 8 / 9) Tj ET
+endstream
+endobj
+22 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> /Contents 21 0 R >>
+endobj
+23 0 obj
+<< /Length 1227 >>
+stream
+BT /F1 10.5 Tf 1 0 0 1 48.00 790.00 Tm (Le projet montre plusieurs compétences Unity :) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 769.00 Tm (- scripts C# organisés en composants ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 755.00 Tm (- utilisation de Rigidbody et collisions ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 741.00 Tm (- gestion de l'UI en runtime ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 727.00 Tm (- chargement de sons ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 713.00 Tm (- gestion d'états réseau ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 699.00 Tm (- génération procédurale simple ;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 60.00 685.00 Tm (- résolution de bugs concrets liés à l'animation, au son et à la physique.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 664.00 Tm (La partie la plus intéressante à présenter est la cohérence entre les systèmes : les cubes) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 650.00 Tm (influencent le score et la vitesse, les voitures interagissent avec les joueurs et les) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 636.00 Tm (obstacles, les sons suivent les objets, et la limite de joueurs dépend directement du nombre) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 48.00 622.00 Tm (de skins disponibles.) Tj ET
+BT /F1 8 Tf 1 0 0 1 507.00 28 Tm (Page 9 / 9) Tj ET
+endstream
+endobj
+24 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R >> >> /Contents 23 0 R >>
+endobj
+xref
+0 25
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000177 00000 n 
+0000000274 00000 n 
+0000000376 00000 n 
+0000000471 00000 n 
+0000000576 00000 n 
+0000005022 00000 n 
+0000005178 00000 n 
+0000008975 00000 n 
+0000009132 00000 n 
+0000013085 00000 n 
+0000013243 00000 n 
+0000016956 00000 n 
+0000017114 00000 n 
+0000020995 00000 n 
+0000021153 00000 n 
+0000025158 00000 n 
+0000025316 00000 n 
+0000028693 00000 n 
+0000028851 00000 n 
+0000032490 00000 n 
+0000032648 00000 n 
+0000033928 00000 n 
+trailer
+<< /Size 25 /Root 1 0 R >>
+startxref
+34086
+%%EOF
