@@ -182,6 +182,7 @@ MonoBehaviour:
   Player1InteractKey: 19
   Player2InteractKey: 19
   CarEnterRadius: 2.4
+  Anim: {fileID: 0}
 --- !u!54 &8781497682776968274
 Rigidbody:
   m_ObjectHideFlags: 0
