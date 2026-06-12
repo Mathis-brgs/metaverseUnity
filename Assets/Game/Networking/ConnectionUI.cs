@@ -13,11 +13,12 @@ public class ConnectionUI : MonoBehaviour
     NetworkManager _net;
     RemotePlayerManager _rpm;
     InputField _nameInput;
+    InputField _ipInput;
     string _selectedCharacter = "barbarian";
     Button[] _charButtons;
     GameObject _panel;
 
-    public static bool Enabled = false; // mettre true pour réactiver l'UI de connexion
+    public static bool Enabled = true;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Create()
@@ -32,6 +33,7 @@ public class ConnectionUI : MonoBehaviour
 
     void Awake()
     {
+        Application.runInBackground = true;
         _net = FindFirstObjectByType<NetworkManager>();
         _rpm = FindFirstObjectByType<RemotePlayerManager>();
         _camOrbit = FindFirstObjectByType<CameraMouseOrbit>();
@@ -81,13 +83,28 @@ public class ConnectionUI : MonoBehaviour
         var title = CreateText(_panel.transform, "MetaVerse", 64);
         Place(title, 0.5f, 0.82f, 600, 80);
 
+        // Label IP
+        var ipLabel = CreateText(_panel.transform, "Adresse du serveur", 24);
+        Place(ipLabel, 0.5f, 0.78f, 400, 40);
+
+        // Champ IP
+        var ipGo = CreateRect(_panel.transform, "IpInput");
+        Place(ipGo, 0.5f, 0.71f, 400, 50);
+        ipGo.AddComponent<Image>().color = new Color(1, 1, 1, 0.15f);
+        _ipInput = ipGo.AddComponent<InputField>();
+        var ipText = CreateText(ipGo.transform, "", 26);
+        Place(ipText, 0.5f, 0.5f, 380, 46);
+        ipText.GetComponent<Text>().alignment = TextAnchor.MiddleLeft;
+        _ipInput.textComponent = ipText.GetComponent<Text>();
+        _ipInput.text = _net != null ? _net.ServerIP : "127.0.0.1";
+
         // Label nom
         var nameLabel = CreateText(_panel.transform, "Nom du joueur", 24);
-        Place(nameLabel, 0.5f, 0.68f, 400, 40);
+        Place(nameLabel, 0.5f, 0.62f, 400, 40);
 
         // Champ nom
         var inputGo = CreateRect(_panel.transform, "NameInput");
-        Place(inputGo, 0.5f, 0.60f, 400, 50);
+        Place(inputGo, 0.5f, 0.54f, 400, 50);
         inputGo.AddComponent<Image>().color = new Color(1, 1, 1, 0.15f);
         _nameInput = inputGo.AddComponent<InputField>();
         var inputText = CreateText(inputGo.transform, "", 26);
@@ -98,7 +115,7 @@ public class ConnectionUI : MonoBehaviour
 
         // Label perso
         var charLabel = CreateText(_panel.transform, "Choisir un personnage", 24);
-        Place(charLabel, 0.5f, 0.49f, 600, 40);
+        Place(charLabel, 0.5f, 0.43f, 600, 40);
 
         // Boutons perso
         _charButtons = new Button[CharacterNames.Length];
@@ -107,7 +124,7 @@ public class ConnectionUI : MonoBehaviour
         {
             int idx = i;
             var btnGo = CreateRect(_panel.transform, CharacterNames[i]);
-            Place(btnGo, startX + i * 0.14f, 0.38f, 160, 60);
+            Place(btnGo, startX + i * 0.14f, 0.32f, 160, 60);
             var btnImg = btnGo.AddComponent<Image>();
             btnImg.color = i == 0 ? new Color(0.2f, 0.6f, 1f) : new Color(0.3f, 0.3f, 0.4f);
             var btn = btnGo.AddComponent<Button>();
@@ -120,7 +137,7 @@ public class ConnectionUI : MonoBehaviour
 
         // Bouton Rejoindre
         var connectGo = CreateRect(_panel.transform, "ConnectBtn");
-        Place(connectGo, 0.5f, 0.25f, 300, 60);
+        Place(connectGo, 0.5f, 0.18f, 300, 60);
         connectGo.AddComponent<Image>().color = new Color(0.1f, 0.7f, 0.3f);
         var connectBtn = connectGo.AddComponent<Button>();
         var connectLabel = CreateText(connectGo.transform, "Rejoindre", 28);
@@ -145,8 +162,22 @@ public class ConnectionUI : MonoBehaviour
         string playerName = _nameInput != null ? _nameInput.text.Trim() : "Joueur";
         if (string.IsNullOrEmpty(playerName)) playerName = "Joueur";
 
+        if (_ipInput != null && !string.IsNullOrEmpty(_ipInput.text.Trim()))
+            _net.ServerIP = _ipInput.text.Trim();
         _net.PlayerName = playerName;
         _net.SelectedCharacter = _selectedCharacter;
+
+        // Swap local player skin if not engineer (engineer is already the scene default)
+        if (_selectedCharacter != "engineer" && _rpm != null && _net.InputSource != null)
+        {
+            var skin = _rpm.ApplyLocalCharacterSkin(_selectedCharacter, _net.InputSource.gameObject);
+            if (skin != null)
+            {
+                var newAnim = skin.GetComponentInChildren<Animator>();
+                if (newAnim != null) _net.InputSource.Anim = newAnim;
+            }
+        }
+
         _net.Connect(playerName);
 
         Destroy(gameObject);

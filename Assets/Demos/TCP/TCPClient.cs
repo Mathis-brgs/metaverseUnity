@@ -75,9 +75,11 @@ public class TCPClient : MonoBehaviour
         if (tcp == null) { return; }
 
         while (tcp.Available > 0)
-		{   
-            byte[] data = new byte[tcp.Available];
-			tcp.GetStream().Read(data, 0, tcp.Available);
+		{
+            int available = tcp.Available;
+            if (available <= 0) break;
+            byte[] data = new byte[available];
+			tcp.GetStream().Read(data, 0, available);
 
 			try
 			{

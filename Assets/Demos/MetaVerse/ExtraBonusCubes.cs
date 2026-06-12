@@ -14,18 +14,9 @@ public class ExtraBonusCubes : MonoBehaviour
     static Material cubeMaterial;
     const string GeneratedRootName = "Generated Bonus Cubes";
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    static void CreateExtraBonuses()
-    {
-      if (FindFirstObjectByType<ExtraBonusCubes>() != null) { return; }
-
-      GameObject spawner = new GameObject("Extra Bonus Cubes");
-      spawner.AddComponent<ExtraBonusCubes>();
-    }
-
     void Start()
     {
-      RebuildCubes();
+      if (BonusCount > 0) RebuildCubes();
     }
 
     void OnValidate()

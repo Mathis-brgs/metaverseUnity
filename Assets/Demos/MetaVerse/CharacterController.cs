@@ -34,7 +34,7 @@ public class CharacterController : MonoBehaviour
     public Key Player2InteractKey = Key.E;
     public float CarEnterRadius = 2.4f;
 
-    Animator Anim;
+    [HideInInspector] public Animator Anim;
     MetaverseInput inputs;
     InputAction PlayerAction;
     Rigidbody rb;
@@ -50,10 +50,17 @@ public class CharacterController : MonoBehaviour
     Coroutine knockDownRoutine;
     DrivableCar currentCar;
     Collider[] colliders;
+    readonly System.Collections.Generic.List<Renderer> _hiddenForCar = new System.Collections.Generic.List<Renderer>();
+    readonly System.Collections.Generic.List<Collider> _hiddenCollidersForCar = new System.Collections.Generic.List<Collider>();
     int comboHitsReceived;
     float lastHitTime;
     bool isDriving;
     bool isKnockedDown;
+
+    /// <summary>
+    /// Quand true, tous les inputs joueur sont ignorés (ex: pendant l'écran de fin de partie).
+    /// </summary>
+    public static bool InputFrozen;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -80,12 +87,10 @@ public class CharacterController : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
-        if (isDriving || isKnockedDown) {
+        if (isDriving || isKnockedDown || InputFrozen) {
           Anim.SetFloat("Walk", 0f);
           return;
         }
-
-        rb.angularVelocity = Vector3.zero;
 
         Vector2 vec = PlayerAction.ReadValue<Vector2>();
         Vector3 movement = GetMovementDirection(vec);
@@ -93,6 +98,13 @@ public class CharacterController : MonoBehaviour
 
         Anim.SetFloat("Walk", moveAmount);
         Anim.speed = IsSlowed ? 0.55f : 1f;
+
+        // En ligne : mouvement local (gravité + collisions sol) — le serveur suit via INPUT sans bloquer sur les murs.
+        if (IsNetworkOnline && rb.isKinematic) {
+          rb.isKinematic = false;
+        }
+
+        rb.angularVelocity = Vector3.zero;
 
         if (movement.sqrMagnitude > 0.001f) {
           Quaternion targetRotation = Quaternion.LookRotation(movement.normalized, Vector3.up);
@@ -122,7 +134,7 @@ public class CharacterController : MonoBehaviour
 
     void Update()
     {
-        if (Keyboard.current == null) { return; }
+        if (Keyboard.current == null || InputFrozen) { return; }
 
         Key interactKey = Player == CharacterPlayer.Player1 ? Player1InteractKey : Player2InteractKey;
         if (Keyboard.current[interactKey].wasPressedThisFrame) {
@@ -185,43 +197,100 @@ public class CharacterController : MonoBehaviour
       return PlayerAction != null ? PlayerAction.ReadValue<Vector2>() : Vector2.zero;
     }
 
+    /// <summary>
+    /// Direction de déplacement voulue, en espace monde, normalisée dans ~[-1,1]
+    /// (déjà relative à la caméra). Utilisée par le client pour envoyer INPUT au serveur autoritaire.
+    /// </summary>
+    public Vector3 GetDesiredWorldMove()
+    {
+      Vector3 dir = GetMovementDirection(GetMoveInput());
+      float maxSpeed = Mathf.Max(WalkSpeed, StrafeSpeed);
+      if (maxSpeed > 0.001f) {
+        dir /= maxSpeed;
+      }
+      return dir;
+    }
+
     public bool IsDrivingCar {
       get { return isDriving; }
+    }
+
+    public DrivableCar CurrentCar {
+      get { return currentCar; }
+    }
+
+    public bool IsKnockedDown {
+      get { return isKnockedDown; }
+    }
+
+    bool IsNetworkOnline {
+      get { return Net != null && Net.HasSession && !isDriving; }
+    }
+
+    NetworkManager _net;
+    NetworkManager Net {
+      get {
+        if (_net == null) _net = FindFirstObjectByType<NetworkManager>();
+        return _net;
+      }
     }
 
     void ToggleCar()
     {
       if (isDriving) {
-        ExitCar();
+        if (Net != null && Net.HasSession) {
+          Net.SendCarExit();
+        } else {
+          ExitCar();
+        }
+        return;
+      }
+
+      if (Net != null && Net.HasSession) {
+        // En réseau : on envoie l'id réseau de la voiture la plus proche (serveur valide).
+        DrivableCar nearest = FindNearestEnterableCar();
+        string carId = nearest != null
+            ? (string.IsNullOrEmpty(nearest.ServerId) ? nearest.gameObject.name : nearest.ServerId)
+            : "";
+        Net.SendCarEnter(carId);
         return;
       }
 
       TryEnterNearestCar();
     }
 
-    void TryEnterNearestCar()
+    public DrivableCar FindNearestEnterableCar()
     {
       Collider[] hits = Physics.OverlapSphere(transform.position, CarEnterRadius, ~0, QueryTriggerInteraction.Collide);
       DrivableCar closest = null;
       float closestDistance = float.MaxValue;
 
-      foreach (Collider hit in hits) {
+      foreach (Collider hit in hits)
+      {
         DrivableCar car = hit.GetComponentInParent<DrivableCar>();
-        if (car == null) {
-          car = TryMakeCarDrivable(hit.transform);
-        }
-        if (car == null || !car.CanEnter(this)) { continue; }
+        if (car == null) car = TryMakeCarDrivable(hit.transform);
+        if (car == null || !car.CanEnter(this)) continue;
 
         float distance = Vector3.SqrMagnitude(car.transform.position - transform.position);
-        if (distance < closestDistance) {
+        if (distance < closestDistance)
+        {
           closest = car;
           closestDistance = distance;
         }
       }
 
-      if (closest != null) {
+      return closest;
+    }
+
+    bool TryEnterNearestCar()
+    {
+      DrivableCar closest = FindNearestEnterableCar();
+      if (closest != null)
+      {
         closest.Enter(this);
+        return true;
       }
+      return false;
     }
 
     DrivableCar TryMakeCarDrivable(Transform hitTransform)
@@ -258,6 +327,11 @@ public class CharacterController : MonoBehaviour
       transform.localRotation = Quaternion.identity;
     }
 
+    public void ExitCarFromNetwork()
+    {
+      ExitCar();
+    }
+
     void ExitCar()
     {
       if (currentCar == null) { return; }
@@ -276,12 +350,24 @@ public class CharacterController : MonoBehaviour
 
     void SetCharacterVisible(bool visible)
     {
-      foreach (Renderer currentRenderer in renderers) {
-        currentRenderer.enabled = visible;
+      if (visible)
+      {
+        // Ne ré-active que ce qui était visible avant l'entrée (évite de montrer l'engineer si un skin est actif).
+        foreach (var r in _hiddenForCar)
+          if (r != null) r.enabled = true;
+        _hiddenForCar.Clear();
+        foreach (var c in _hiddenCollidersForCar)
+          if (c != null) c.enabled = true;
+        _hiddenCollidersForCar.Clear();
       }
-
-      foreach (Collider currentCollider in colliders) {
-        currentCollider.enabled = visible;
+      else
+      {
+        _hiddenForCar.Clear();
+        foreach (var r in GetComponentsInChildren<Renderer>(true))
+          if (r.enabled) { r.enabled = false; _hiddenForCar.Add(r); }
+        _hiddenCollidersForCar.Clear();
+        foreach (var c in GetComponentsInChildren<Collider>(true))
+          if (c.enabled) { c.enabled = false; _hiddenCollidersForCar.Add(c); }
       }
     }
 
@@ -292,6 +378,16 @@ public class CharacterController : MonoBehaviour
 
       nextAttackTime = Time.time + AttackCooldown;
 
+      if (Net != null && Net.HasSession) {
+        string targetId = FindNetworkAttackTarget();
+        if (!string.IsNullOrEmpty(targetId)) {
+          Net.SendAttack(targetId);
+        }
+        if (attackFeedback != null) StopCoroutine(attackFeedback);
+        attackFeedback = StartCoroutine(PlayAttackFeedback(null));
+        return;
+      }
+
       CharacterController target = FindAttackTarget();
       if (target != null) {
         target.ReceiveHit(transform.position, AttackSlowDuration);
@@ -301,6 +397,13 @@ public class CharacterController : MonoBehaviour
         StopCoroutine(attackFeedback);
       }
       attackFeedback = StartCoroutine(PlayAttackFeedback(target));
+    }
+
+    string FindNetworkAttackTarget()
+    {
+      RemotePlayerManager rpm = FindFirstObjectByType<RemotePlayerManager>();
+      if (rpm == null) return null;
+      return rpm.FindClosestPlayerInRange(transform.position, AttackRange, Net.MyPlayerId);
     }
 
     CharacterController FindAttackTarget()
@@ -323,6 +426,34 @@ public class CharacterController : MonoBehaviour
       return closest;
     }
 
+    public void ReceiveNetworkHit(Vector3 attackerPosition, bool knockDown, int hitIndex)
+    {
+      if (isKnockedDown) { return; }
+
+      slowedUntil = Mathf.Max(slowedUntil, Time.time + AttackSlowDuration);
+
+      // Pas de knockback physique en réseau — évite les désyncs / rollbacks.
+      if (hitFeedback != null) {
+        StopCoroutine(hitFeedback);
+      }
+      hitFeedback = StartCoroutine(PlayHitFeedback());
+
+      if (knockDown) {
+        comboHitsReceived = 0;
+        if (knockDownRoutine != null) StopCoroutine(knockDownRoutine);
+        if (hitAnimationRoutine != null) {
+          StopCoroutine(hitAnimationRoutine);
+          hitAnimationRoutine = null;
+        }
+        knockDownRoutine = StartCoroutine(PlayKnockDownSequence());
+        return;
+      }
+
+      string hitState = hitIndex % 2 == 0 ? "Hit_B" : "Hit_A";
+      if (hitAnimationRoutine != null) StopCoroutine(hitAnimationRoutine);
+      hitAnimationRoutine = StartCoroutine(PlayHitAnimation(hitState));
+    }
+
     void ReceiveHit(Vector3 attackerPosition, float duration)
     {
       if (isKnockedDown) { return; }
@@ -331,7 +462,7 @@ public class CharacterController : MonoBehaviour
 
       Vector3 knockbackDirection = transform.position - attackerPosition;
       knockbackDirection.y = 0f;
-      if (knockbackDirection.sqrMagnitude > 0.001f) {
+      if (rb != null && knockbackDirection.sqrMagnitude > 0.001f) {
         rb.AddForce(knockbackDirection.normalized * AttackKnockback, ForceMode.VelocityChange);
       }
 

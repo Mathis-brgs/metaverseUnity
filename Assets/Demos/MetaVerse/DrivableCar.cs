@@ -4,7 +4,7 @@ public class DrivableCar : MonoBehaviour
 {
     public float DriveSpeed = 7f;
     public float ReverseSpeed = 3.5f;
-    public float TurnSpeed = 120f;
+    public float TurnSpeed = 180f;
     public bool AutoDriveWhenEmpty = false;
     public bool UseSceneAnimationWhenEmpty = true;
     public bool ParkAfterDriverExit = true;
@@ -22,6 +22,24 @@ public class DrivableCar : MonoBehaviour
     public Vector3 SeatOffset = new Vector3(0f, 1.1f, 0f);
     public Vector3 ExitOffset = new Vector3(1.8f, 0f, 0f);
     public Transform Seat;
+
+    // --- Réseau ---
+    /// <summary>Identifiant attribué par le serveur (ServerCarAuthority).</summary>
+    public string ServerId;
+    /// <summary>Vrai côté serveur quand un joueur réseau conduit cette voiture.</summary>
+    public bool IsNetworkDriven { get; private set; }
+    /// <summary>Vrai côté client connecté : la physique locale est suspendue, les positions viennent du STATE.</summary>
+    public static bool ClientSuppressed;
+    public float NetLerpSpeed = 20f;
+    /// <summary>
+    /// Écart (m) au-delà duquel une voiture animée autonome se resynchronise sur la position serveur.
+    /// En dessous du seuil, l'animation locale tourne librement pour rester fluide.
+    /// </summary>
+    public float NetSnapThreshold = 8f;
+    Vector2 _networkInput;
+    Vector3 _netTargetPos;
+    float _netTargetRotY;
+    bool _hasNetTarget;
 
     CharacterController driver;
     Rigidbody rb;
@@ -53,6 +71,31 @@ public class DrivableCar : MonoBehaviour
       return objectName.Length > 3 && objectName.StartsWith("Car") && char.IsDigit(objectName[3]);
     }
 
+    /// <summary>
+    /// Attribue des ServerId stables (Car6A, Car6A_2, …) — même logique que le serveur.
+    /// </summary>
+    public static void AssignNetworkIds(System.Collections.Generic.Dictionary<string, DrivableCar> registry = null)
+    {
+      DrivableCar[] cars = FindObjectsByType<DrivableCar>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+      System.Array.Sort(cars, (a, b) => string.CompareOrdinal(a.gameObject.name, b.gameObject.name));
+
+      var used = new System.Collections.Generic.Dictionary<string, DrivableCar>();
+      foreach (DrivableCar car in cars)
+      {
+        string id = car.gameObject.name;
+        if (used.ContainsKey(id))
+        {
+          int i = 2;
+          while (used.ContainsKey(id + "_" + i)) i++;
+          id = id + "_" + i;
+        }
+
+        car.ServerId = id;
+        used[id] = car;
+        if (registry != null) registry[id] = car;
+      }
+    }
+
     public bool HasDriver {
       get { return driver != null; }
     }
@@ -72,6 +115,10 @@ public class DrivableCar : MonoBehaviour
       rb.angularDamping = 4f;
       rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
       sceneAnimation = GetComponentInChildren<Animation>();
+      // Voiture animée : kinematic pour que l'animation ne se batte pas avec la physique.
+      if (sceneAnimation != null && UseSceneAnimationWhenEmpty) {
+        rb.isKinematic = true;
+      }
 
       if (GetComponentInChildren<Collider>() == null) {
         BoxCollider box = gameObject.AddComponent<BoxCollider>();
@@ -102,14 +149,46 @@ public class DrivableCar : MonoBehaviour
       engineSource.loop = true;
       engineSource.spatialBlend = 1f;
       engineSource.volume = EngineVolume;
-      StartCoroutine(LoadEngineSound());
+      if (!ServerMode.Active)
+        StartCoroutine(LoadEngineSound());
 
       IgnoreBonusCollisions();
     }
 
     void FixedUpdate()
     {
-      rb.angularVelocity = Vector3.zero;
+      // Client connecté : positions viennent du serveur via STATE.
+      if (ClientSuppressed) {
+        if (driver != null) {
+          // Joueur local au volant : physique locale pour la réactivité.
+          if (rb != null && rb.isKinematic) rb.isKinematic = false;
+          DriveWithInput(driver.GetMoveInput());
+          return;
+        }
+
+        if (rb != null && !rb.isKinematic) rb.isKinematic = true;
+
+        // En mode réseau, l'animation locale n'est jamais utilisée pour déplacer la voiture :
+        // elle anime un objet ENFANT en espace monde, ce qui laisse le Rigidbody (ROOT)
+        // au spawn pendant que le visuel se balade — d'où les voitures "invisibles" et
+        // le skin qui se déplace sans le corps physique.
+        // On désactive l'animation et on lerp le ROOT vers la position serveur.
+        if (sceneAnimation != null && sceneAnimation.enabled) sceneAnimation.enabled = false;
+
+        if (_hasNetTarget && rb != null) {
+          rb.MovePosition(Vector3.Lerp(rb.position, _netTargetPos, Time.fixedDeltaTime * NetLerpSpeed));
+          rb.MoveRotation(Quaternion.Slerp(rb.rotation, Quaternion.Euler(0f, _netTargetRotY, 0f), Time.fixedDeltaTime * NetLerpSpeed));
+        }
+        return;
+      }
+
+      if (!rb.isKinematic) rb.angularVelocity = Vector3.zero;
+
+      // Serveur : voiture conduite par un joueur réseau.
+      if (IsNetworkDriven) {
+        DriveWithInput(_networkInput);
+        return;
+      }
 
       if (driver != null) {
         parked = false;
@@ -147,6 +226,12 @@ public class DrivableCar : MonoBehaviour
       StopNow();
       parked = false;
       driver = character;
+      if (rb != null)
+      {
+        rb.isKinematic = false;
+        // ContinuousSpeculative évite de traverser les voitures kinematic voisines.
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+      }
       driver.EnterCar(this);
     }
 
@@ -157,6 +242,12 @@ public class DrivableCar : MonoBehaviour
       driver = null;
       StopNow();
       parked = ParkAfterDriverExit;
+      if (rb != null)
+      {
+        rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
+        if (sceneAnimation != null && UseSceneAnimationWhenEmpty && !ClientSuppressed)
+          rb.isKinematic = true;
+      }
     }
 
     public Vector3 GetExitPosition()
@@ -164,8 +255,73 @@ public class DrivableCar : MonoBehaviour
       return transform.TransformPoint(ExitOffset);
     }
 
+    // --- Pilotage réseau (serveur) ---
+
+    public void BeginNetworkDrive()
+    {
+      IsNetworkDriven = true;
+      parked = false;
+      driver = null;
+      if (rb != null) rb.isKinematic = false;
+      if (sceneAnimation != null) sceneAnimation.enabled = false;
+    }
+
+    public void EndNetworkDrive()
+    {
+      IsNetworkDriven = false;
+      _networkInput = Vector2.zero;
+      StopNow();
+      parked = ParkAfterDriverExit;
+      if (sceneAnimation != null && UseSceneAnimationWhenEmpty)
+        rb.isKinematic = true;
+    }
+
+    public void SetNetworkInput(Vector2 input)
+    {
+      _networkInput = input;
+    }
+
+    // --- Application réseau (client) ---
+
+    public void ApplyNetworkTransform(Vector3 position, float rotY)
+    {
+      // Joueur local au volant : il est autoritaire, on ignore les corrections serveur.
+      // Sans ce guard, _netTargetPos se met à jour et la voiture snappe sur la position
+      // serveur dès que le joueur sort.
+      if (driver != null) return;
+
+      _netTargetPos = position;
+      _netTargetRotY = rotY;
+      if (!_hasNetTarget)
+      {
+        // Premier appel : snap immédiat pour placer la voiture correctement dès le join.
+        transform.position = position;
+        transform.rotation = Quaternion.Euler(0f, rotY, 0f);
+        if (rb != null) rb.isKinematic = true;
+      }
+      _hasNetTarget = true;
+    }
+
+    /// <summary>
+    /// Téléporte instantanément la voiture (transform + Rigidbody) à la position donnée.
+    /// Utilisé côté serveur pour resynchroniser la position physique avec le WorldState
+    /// (mis à jour par le client) au moment où un joueur sort de la voiture.
+    /// </summary>
+    public void SnapToPosition(Vector3 pos, float rotY)
+    {
+      var rot = Quaternion.Euler(0f, rotY, 0f);
+      transform.position = pos;
+      transform.rotation = rot;
+      if (rb != null)
+      {
+        rb.position = pos;
+        rb.rotation = rot;
+      }
+    }
+
     public void StopNow()
     {
+      if (rb == null || rb.isKinematic) return;
       rb.linearVelocity = Vector3.zero;
       rb.angularVelocity = Vector3.zero;
     }
@@ -220,18 +376,14 @@ public class DrivableCar : MonoBehaviour
 
     void SetSceneAnimationPlaying(bool shouldPlay)
     {
-      if (!UseSceneAnimationWhenEmpty || sceneAnimation == null) { return; }
-
-      sceneAnimation.enabled = true;
-
-      if (shouldPlay) {
-        SetSceneAnimationSpeed(1f);
-        if (!sceneAnimationStarted) {
-          sceneAnimation.Play();
-          sceneAnimationStarted = true;
-        }
-      } else {
-        SetSceneAnimationSpeed(0f);
+      if (sceneAnimation == null) return;
+      bool wantPlay = shouldPlay && UseSceneAnimationWhenEmpty;
+      sceneAnimation.enabled = wantPlay;
+      if (!wantPlay) return;
+      SetSceneAnimationSpeed(1f);
+      if (!sceneAnimationStarted) {
+        sceneAnimation.Play();
+        sceneAnimationStarted = true;
       }
     }
 
@@ -254,6 +406,7 @@ public class DrivableCar : MonoBehaviour
 
     void SetEngineSoundPlaying(bool shouldPlay)
     {
+      if (ServerMode.Active) return;
       if (engineSource == null || engineSource.clip == null) { return; }
 
       engineSource.volume = EngineVolume;
@@ -355,6 +508,7 @@ public class DrivableCar : MonoBehaviour
 
     void Honk()
     {
+      if (ServerMode.Active) return;
       if (Time.time < nextHornTime || hornSource == null || hornSource.clip == null) { return; }
 
       hornSource.Play();

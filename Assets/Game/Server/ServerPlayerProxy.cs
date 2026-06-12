@@ -1,0 +1,160 @@
+using UnityEngine;
+
+/// <summary>
+/// Représentation physique autoritaire d'un joueur connecté, côté serveur.
+/// Reçoit les intentions de déplacement (INPUT), applique la physique (collisions murs/obstacles)
+/// et réécrit la position résultante dans le <see cref="WorldState"/> pour le broadcast STATE.
+/// </summary>
+[RequireComponent(typeof(Rigidbody))]
+public class ServerPlayerProxy : MonoBehaviour
+{
+    public float WalkSpeed = 3f;
+    public float TurnSpeed = 720f;
+    [Tooltip("Layer des personnages (doit matcher Bonus.CollisionLayers).")]
+    public int CharacterLayer = 6;
+
+    public string PlayerId      { get; private set; }
+    public Vector3 SpawnPosition { get; private set; }
+
+    static int _spawnIndex;
+
+    PlayerState _state;
+    WorldState _world;
+    Rigidbody _rb;
+    Vector3 _inputDir;     // direction monde voulue (x,z dans [-1,1])
+    float _targetRotY;
+    bool _hasInput;
+
+    public void Init(PlayerState state, WorldState world)
+    {
+        _state = state;
+        _world = world;
+        PlayerId = state.Id;
+
+        gameObject.layer = CharacterLayer;
+
+        var col = GetComponent<Collider>();
+        if (col == null)
+        {
+            var capsule = gameObject.AddComponent<CapsuleCollider>();
+            capsule.height = 2f;
+            capsule.center = new Vector3(0f, 1f, 0f);
+            capsule.radius = 0.4f;
+        }
+
+        // Trigger uniquement : détection bonus sans bloquer le déplacement sur trottoirs / murs.
+        foreach (var c in GetComponents<Collider>())
+            c.isTrigger = true;
+
+        _rb = GetComponent<Rigidbody>();
+        _rb.useGravity = false;
+        _rb.isKinematic = true;
+        _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+        _rb.interpolation = RigidbodyInterpolation.None;
+
+        // Spawn à la position annoncée dans le JOIN ; grille près de l'origine en secours (clients legacy).
+        Vector3 spawn;
+        if (Mathf.Abs(state.X) > 0.01f || Mathf.Abs(state.Z) > 0.01f)
+            spawn = new Vector3(state.X, state.Y, state.Z);
+        else
+            spawn = new Vector3((_spawnIndex % 4) * 1.5f, 1f, (_spawnIndex / 4) * 1.5f);
+        _spawnIndex++;
+        SpawnPosition = spawn;
+        transform.position = spawn;
+        transform.eulerAngles = new Vector3(0f, state.RotY, 0f);
+        _targetRotY = state.RotY;
+
+        WriteBack();
+    }
+
+    public void SetInput(float ix, float iz, float rotY, float y)
+    {
+        _inputDir = new Vector3(ix, 0f, iz);
+        if (_inputDir.sqrMagnitude > 1f) _inputDir.Normalize();
+        _targetRotY = rotY;
+        _hasInput = true;
+
+        // Y rapporté par le client (gravité / sol local).
+        if (!float.IsNaN(y) && !float.IsInfinity(y) && string.IsNullOrEmpty(_state.InCarId))
+        {
+            Vector3 pos = transform.position;
+            pos.y = y;
+            transform.position = pos;
+            if (_rb != null) _rb.position = pos;
+        }
+    }
+
+    /// <summary>
+    /// Place directement le proxy à une position (client legacy MOVE). Utilise rb.position
+    /// pour conserver la détection des triggers de bonus.
+    /// </summary>
+    public void ApplyDirectPosition(Vector3 position, float rotY)
+    {
+        // Mode legacy : pas de gravité ni simulation, on suit exactement la position du client.
+        if (_rb != null)
+        {
+            if (!_rb.isKinematic) _rb.isKinematic = true;
+            _rb.position = position;
+            _rb.rotation = Quaternion.Euler(0f, rotY, 0f);
+        }
+        transform.position = position;
+        transform.eulerAngles = new Vector3(0f, rotY, 0f);
+        _hasInput = false;
+        WriteBack();
+    }
+
+    void FixedUpdate()
+    {
+        if (_state == null || _rb == null) return;
+
+        // En voiture : le proxy ne bouge pas, la voiture fait autorité.
+        if (!string.IsNullOrEmpty(_state.InCarId))
+        {
+            _rb.linearVelocity = Vector3.zero;
+            return;
+        }
+
+        // KO / étourdissement : immobile côté serveur.
+        if (Time.time < _state.StunnedUntil)
+        {
+            _rb.linearVelocity = Vector3.zero;
+            _hasInput = false;
+            WriteBack();
+            return;
+        }
+
+        _rb.angularVelocity = Vector3.zero;
+
+        if (_hasInput && _inputDir.sqrMagnitude > 0.0001f)
+        {
+            Vector3 movement = _inputDir * WalkSpeed * Time.fixedDeltaTime;
+            Vector3 next = transform.position + movement;
+            transform.position = next;
+            if (_rb != null) _rb.position = next;
+
+            Quaternion target = Quaternion.Euler(0f, _targetRotY, 0f);
+            Quaternion nextRot = Quaternion.RotateTowards(transform.rotation, target, TurnSpeed * Time.fixedDeltaTime);
+            transform.rotation = nextRot;
+            if (_rb != null) _rb.rotation = nextRot;
+        }
+        else if (_hasInput)
+        {
+            Quaternion target = Quaternion.Euler(0f, _targetRotY, 0f);
+            Quaternion nextRot = Quaternion.RotateTowards(transform.rotation, target, TurnSpeed * Time.fixedDeltaTime);
+            transform.rotation = nextRot;
+            if (_rb != null) _rb.rotation = nextRot;
+        }
+
+        WriteBack();
+    }
+
+    void WriteBack()
+    {
+        if (_state == null) return;
+        Vector3 p = transform.position;
+        _state.X = p.x;
+        _state.Y = p.y;
+        _state.Z = p.z;
+        _state.RotY = transform.eulerAngles.y;
+    }
+}
