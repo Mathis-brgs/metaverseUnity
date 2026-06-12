@@ -7,6 +7,7 @@ public class CharacterScore : MonoBehaviour
 
     NetworkManager _net;
     string _displayName = "";
+    bool _nameSetExternally;
 
     void Start()
     {
@@ -14,8 +15,8 @@ public class CharacterScore : MonoBehaviour
         if (_net != null)
         {
             _net.OnBonusTaken.AddListener(OnBonusTaken);
-            // Pour le joueur local, on affiche son propre pseudo dès le départ.
-            if (!string.IsNullOrEmpty(_net.PlayerName))
+            // Joueur local uniquement : les distants reçoivent déjà leur nom via RemotePlayerManager.
+            if (!_nameSetExternally && !string.IsNullOrEmpty(_net.PlayerName))
                 SetDisplayName(_net.PlayerName);
         }
         RefreshLabel();
@@ -31,6 +32,7 @@ public class CharacterScore : MonoBehaviour
     public void SetDisplayName(string name)
     {
         _displayName = name;
+        _nameSetExternally = true;
         RefreshLabel();
     }
 
