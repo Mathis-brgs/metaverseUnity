@@ -75,6 +75,28 @@ public class ErrorMessage
     public string message;
 }
 
+[Serializable]
+public class BonusSpawnMessage
+{
+    public string type;
+    public string bonusId;
+    public float x;
+    public float y;
+    public float z;
+}
+
+[Serializable]
+public class GameOverMessage
+{
+    public string type;
+    public string winnerId;
+    public string winnerName;
+    public int winnerScore;
+    public float spawnX;
+    public float spawnY;
+    public float spawnZ;
+}
+
 // --- Messages entrants (client → serveur), parsés par le serveur Unity ---
 
 [Serializable]
@@ -129,6 +151,11 @@ public class InputMessage
     public float iz;
     public float rotY;
     public float y;
+    public bool inCar;
+    public float carX;
+    public float carY;
+    public float carZ;
+    public float carRotY;
 }
 
 [Serializable]
@@ -175,6 +202,13 @@ public class NetBonusSnapshot
     public float x;
     public float y;
     public float z;
+    /// <summary>
+    /// true = bonus déjà collecté sur le serveur.
+    /// false (ou absent) = bonus actif.
+    /// Le client n'utilise ce flag que pour cacher les bonus EXPLICITEMENT collectés ;
+    /// un bonus absent de la liste (non connu du serveur) reste visible côté client.
+    /// </summary>
+    public bool collected;
 }
 
 [Serializable]

@@ -13,7 +13,8 @@ public class ServerPlayerProxy : MonoBehaviour
     [Tooltip("Layer des personnages (doit matcher Bonus.CollisionLayers).")]
     public int CharacterLayer = 6;
 
-    public string PlayerId { get; private set; }
+    public string PlayerId      { get; private set; }
+    public Vector3 SpawnPosition { get; private set; }
 
     static int _spawnIndex;
 
@@ -58,6 +59,7 @@ public class ServerPlayerProxy : MonoBehaviour
         else
             spawn = new Vector3((_spawnIndex % 4) * 1.5f, 1f, (_spawnIndex / 4) * 1.5f);
         _spawnIndex++;
+        SpawnPosition = spawn;
         transform.position = spawn;
         transform.eulerAngles = new Vector3(0f, state.RotY, 0f);
         _targetRotY = state.RotY;

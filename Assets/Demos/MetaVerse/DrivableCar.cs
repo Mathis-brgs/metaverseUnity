@@ -31,6 +31,11 @@ public class DrivableCar : MonoBehaviour
     /// <summary>Vrai côté client connecté : la physique locale est suspendue, les positions viennent du STATE.</summary>
     public static bool ClientSuppressed;
     public float NetLerpSpeed = 20f;
+    /// <summary>
+    /// Écart (m) au-delà duquel une voiture animée autonome se resynchronise sur la position serveur.
+    /// En dessous du seuil, l'animation locale tourne librement pour rester fluide.
+    /// </summary>
+    public float NetSnapThreshold = 8f;
     Vector2 _networkInput;
     Vector3 _netTargetPos;
     float _netTargetRotY;
@@ -152,10 +157,24 @@ public class DrivableCar : MonoBehaviour
 
     void FixedUpdate()
     {
-      // Client connecté : positions viennent du serveur via STATE (conducteur inclus).
+      // Client connecté : positions viennent du serveur via STATE.
       if (ClientSuppressed) {
+        if (driver != null) {
+          // Joueur local au volant : physique locale pour la réactivité.
+          if (rb != null && rb.isKinematic) rb.isKinematic = false;
+          DriveWithInput(driver.GetMoveInput());
+          return;
+        }
+
         if (rb != null && !rb.isKinematic) rb.isKinematic = true;
-        if (sceneAnimation != null) sceneAnimation.enabled = false;
+
+        // En mode réseau, l'animation locale n'est jamais utilisée pour déplacer la voiture :
+        // elle anime un objet ENFANT en espace monde, ce qui laisse le Rigidbody (ROOT)
+        // au spawn pendant que le visuel se balade — d'où les voitures "invisibles" et
+        // le skin qui se déplace sans le corps physique.
+        // On désactive l'animation et on lerp le ROOT vers la position serveur.
+        if (sceneAnimation != null && sceneAnimation.enabled) sceneAnimation.enabled = false;
+
         if (_hasNetTarget && rb != null) {
           rb.MovePosition(Vector3.Lerp(rb.position, _netTargetPos, Time.fixedDeltaTime * NetLerpSpeed));
           rb.MoveRotation(Quaternion.Slerp(rb.rotation, Quaternion.Euler(0f, _netTargetRotY, 0f), Time.fixedDeltaTime * NetLerpSpeed));
@@ -207,7 +226,12 @@ public class DrivableCar : MonoBehaviour
       StopNow();
       parked = false;
       driver = character;
-      if (rb != null) rb.isKinematic = false;
+      if (rb != null)
+      {
+        rb.isKinematic = false;
+        // ContinuousSpeculative évite de traverser les voitures kinematic voisines.
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+      }
       driver.EnterCar(this);
     }
 
@@ -218,8 +242,12 @@ public class DrivableCar : MonoBehaviour
       driver = null;
       StopNow();
       parked = ParkAfterDriverExit;
-      if (sceneAnimation != null && UseSceneAnimationWhenEmpty && !ClientSuppressed)
-        rb.isKinematic = true;
+      if (rb != null)
+      {
+        rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
+        if (sceneAnimation != null && UseSceneAnimationWhenEmpty && !ClientSuppressed)
+          rb.isKinematic = true;
+      }
     }
 
     public Vector3 GetExitPosition()
@@ -257,16 +285,38 @@ public class DrivableCar : MonoBehaviour
 
     public void ApplyNetworkTransform(Vector3 position, float rotY)
     {
+      // Joueur local au volant : il est autoritaire, on ignore les corrections serveur.
+      // Sans ce guard, _netTargetPos se met à jour et la voiture snappe sur la position
+      // serveur dès que le joueur sort.
+      if (driver != null) return;
+
       _netTargetPos = position;
       _netTargetRotY = rotY;
       if (!_hasNetTarget)
       {
-        // Premier appel : snap immédiat.
+        // Premier appel : snap immédiat pour placer la voiture correctement dès le join.
         transform.position = position;
         transform.rotation = Quaternion.Euler(0f, rotY, 0f);
         if (rb != null) rb.isKinematic = true;
       }
       _hasNetTarget = true;
+    }
+
+    /// <summary>
+    /// Téléporte instantanément la voiture (transform + Rigidbody) à la position donnée.
+    /// Utilisé côté serveur pour resynchroniser la position physique avec le WorldState
+    /// (mis à jour par le client) au moment où un joueur sort de la voiture.
+    /// </summary>
+    public void SnapToPosition(Vector3 pos, float rotY)
+    {
+      var rot = Quaternion.Euler(0f, rotY, 0f);
+      transform.position = pos;
+      transform.rotation = rot;
+      if (rb != null)
+      {
+        rb.position = pos;
+        rb.rotation = rot;
+      }
     }
 
     public void StopNow()

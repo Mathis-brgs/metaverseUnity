@@ -30,6 +30,12 @@ public class CameraMouseOrbit : MonoBehaviour
     {
         if (Mouse.current == null || follow == null) { return; }
 
+        if (CharacterController.InputFrozen)
+        {
+            SetCursorDragging(false);
+            return;
+        }
+
         bool dragging = Mouse.current.leftButton.isPressed;
         SetCursorDragging(dragging);
 

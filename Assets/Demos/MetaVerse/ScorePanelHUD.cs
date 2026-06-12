@@ -2,6 +2,7 @@ using System.Text;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 public class ScorePanelHUD : MonoBehaviour
 {
@@ -205,6 +206,9 @@ public class ScorePanelHUD : MonoBehaviour
       if (networkManager.OnBonusTaken != null) {
         networkManager.OnBonusTaken.AddListener(HandleBonusTaken);
       }
+      if (networkManager.OnGameOver != null) {
+        networkManager.OnGameOver.AddListener(HandleGameOver);
+      }
     }
 
     void UnregisterNetworkManager()
@@ -222,6 +226,9 @@ public class ScorePanelHUD : MonoBehaviour
       }
       if (networkManager.OnBonusTaken != null) {
         networkManager.OnBonusTaken.RemoveListener(HandleBonusTaken);
+      }
+      if (networkManager.OnGameOver != null) {
+        networkManager.OnGameOver.RemoveListener(HandleGameOver);
       }
     }
 
@@ -265,6 +272,134 @@ public class ScorePanelHUD : MonoBehaviour
 
       scoreLine.Score = message.newScore;
       networkScoreLines[message.byPlayerId] = scoreLine;
+    }
+
+    void HandleGameOver(GameOverMessage message)
+    {
+      if (message == null) { return; }
+
+      // Remet tous les scores à 0 dans le HUD.
+      var keys = new System.Collections.Generic.List<string>(networkScoreLines.Keys);
+      foreach (var id in keys) {
+        var line = networkScoreLines[id];
+        line.Score = 0;
+        networkScoreLines[id] = line;
+      }
+
+      // Fige le joueur, affiche le curseur pour le bouton, puis l'écran de victoire.
+      CharacterController.InputFrozen = true;
+      Cursor.lockState = CursorLockMode.None;
+      Cursor.visible = true;
+      ShowGameOverScreen(message.winnerName, message.winnerScore);
+    }
+
+    void ShowGameOverScreen(string winnerName, int winnerScore)
+    {
+      // Cherche ou crée un EventSystem (nécessaire pour les boutons UI).
+      if (FindFirstObjectByType<EventSystem>() == null) {
+        var esGo = new GameObject("EventSystem");
+        esGo.AddComponent<EventSystem>();
+        esGo.AddComponent<StandaloneInputModule>();
+      }
+
+      // Overlay plein écran semi-opaque — Canvas racine indépendant pour que le
+      // GraphicRaycaster fonctionne sans être bloqué par le Canvas parent du HUD.
+      GameObject overlay = new GameObject("GameOver Overlay");
+
+      Canvas overlayCanvas = overlay.AddComponent<Canvas>();
+      overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+      overlayCanvas.sortingOrder = 200;
+      overlay.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+      overlay.AddComponent<GraphicRaycaster>();
+
+      // Fond noir.
+      GameObject bg = new GameObject("Background");
+      bg.transform.SetParent(overlay.transform, false);
+      RectTransform bgRect = bg.AddComponent<RectTransform>();
+      bgRect.anchorMin = Vector2.zero;
+      bgRect.anchorMax = Vector2.one;
+      bgRect.offsetMin = Vector2.zero;
+      bgRect.offsetMax = Vector2.zero;
+      Image bgImg = bg.AddComponent<Image>();
+      bgImg.color = new Color(0f, 0f, 0f, 0.82f);
+      bgImg.raycastTarget = false;
+
+      // Panneau central.
+      GameObject panel = new GameObject("Panel");
+      panel.transform.SetParent(overlay.transform, false);
+      RectTransform panelRect = panel.AddComponent<RectTransform>();
+      panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+      panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+      panelRect.pivot = new Vector2(0.5f, 0.5f);
+      panelRect.anchoredPosition = Vector2.zero;
+      panelRect.sizeDelta = new Vector2(700f, 360f);
+      Image panelImg = panel.AddComponent<Image>();
+      panelImg.color = new Color(0.07f, 0.07f, 0.12f, 0.97f);
+
+      Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+      // Titre "FIN DE PARTIE".
+      AddLabel(panel.transform, "FIN DE PARTIE", 52, Color.yellow,
+               new Vector2(0f, 120f), new Vector2(680f, 70f));
+
+      // Vainqueur.
+      string winText = winnerName + " gagne avec " + winnerScore + " pts !";
+      AddLabel(panel.transform, winText, 36, Color.white,
+               new Vector2(0f, 30f), new Vector2(680f, 55f));
+
+      // Sous-titre "Retour au spawn...".
+      AddLabel(panel.transform, "Tous les joueurs sont téléportés au spawn.", 22, new Color(0.7f, 0.9f, 1f),
+               new Vector2(0f, -35f), new Vector2(680f, 36f));
+
+      // Bouton "Rejouer".
+      GameObject btnGo = new GameObject("BtnRejouer");
+      btnGo.transform.SetParent(panel.transform, false);
+      RectTransform btnRect = btnGo.AddComponent<RectTransform>();
+      btnRect.anchorMin = new Vector2(0.5f, 0.5f);
+      btnRect.anchorMax = new Vector2(0.5f, 0.5f);
+      btnRect.pivot = new Vector2(0.5f, 0.5f);
+      btnRect.anchoredPosition = new Vector2(0f, -120f);
+      btnRect.sizeDelta = new Vector2(260f, 60f);
+
+      Image btnImg = btnGo.AddComponent<Image>();
+      btnImg.color = new Color(0.15f, 0.6f, 0.25f, 1f);
+
+      Button btn = btnGo.AddComponent<Button>();
+      ColorBlock cb = btn.colors;
+      cb.highlightedColor = new Color(0.25f, 0.85f, 0.4f);
+      cb.pressedColor = new Color(0.1f, 0.45f, 0.18f);
+      btn.colors = cb;
+
+      AddLabel(btnGo.transform, "REJOUER", 32, Color.white, Vector2.zero, new Vector2(260f, 60f));
+
+      btn.onClick.AddListener(() => {
+        CharacterController.InputFrozen = false;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = false;
+        Destroy(overlay);
+      });
+    }
+
+    void AddLabel(Transform parent, string text, int fontSize, Color color, Vector2 anchoredPos, Vector2 size)
+    {
+      Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+      GameObject go = new GameObject("Label");
+      go.transform.SetParent(parent, false);
+      RectTransform rt = go.AddComponent<RectTransform>();
+      rt.anchorMin = new Vector2(0.5f, 0.5f);
+      rt.anchorMax = new Vector2(0.5f, 0.5f);
+      rt.pivot = new Vector2(0.5f, 0.5f);
+      rt.anchoredPosition = anchoredPos;
+      rt.sizeDelta = size;
+      Text t = go.AddComponent<Text>();
+      t.font = font;
+      t.text = text;
+      t.fontSize = fontSize;
+      t.color = color;
+      t.alignment = TextAnchor.MiddleCenter;
+      t.horizontalOverflow = HorizontalWrapMode.Overflow;
+      t.verticalOverflow = VerticalWrapMode.Overflow;
+      t.raycastTarget = false; // ne pas bloquer les clics sur les boutons parents
     }
 
     void SetNetworkScoreLine(string playerId, string playerName, int score)

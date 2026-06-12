@@ -46,6 +46,8 @@ public class NetworkManager : MonoBehaviour
     public UnityEvent<CarEnteredMessage> OnCarEntered;
     public UnityEvent<CarExitedMessage> OnCarExited;
     public UnityEvent<PlayerHitMessage> OnPlayerHit;
+    public UnityEvent<BonusSpawnMessage> OnBonusSpawn;
+    public UnityEvent<GameOverMessage> OnGameOver;
     public UnityEvent<ErrorMessage> OnError;
 
     TCPClient _tcp;
@@ -112,8 +114,7 @@ public class NetworkManager : MonoBehaviour
             return false;
         }
 
-        // Position de spawn réelle du joueur local, pour que le serveur et les autres clients
-        // ne le voient pas apparaître à l'origine (0,0,0).
+      
         Transform spawnSource = InputSource != null ? InputSource.transform
             : (MoveSource != null ? MoveSource : transform);
         Vector3 spawnPos = spawnSource.position;
@@ -274,16 +275,36 @@ public class NetworkManager : MonoBehaviour
         _inputTimer = 0f;
 
         float ix, iz;
-        if (InputSource.IsDrivingCar)
+        bool inCar = InputSource.IsDrivingCar;
+
+        if (inCar)
         {
             // En voiture : ix = braquage, iz = accélération (entrée brute).
             Vector2 raw = InputSource.GetMoveInput();
             ix = raw.x;
             iz = raw.y;
+
+       
+            float carX = 0, carY = 0, carZ = 0, carRotY = 0;
+            DrivableCar car = InputSource.CurrentCar;
+            if (car != null)
+            {
+                Vector3 cp = car.transform.position;
+                carX = cp.x; carY = cp.y; carZ = cp.z;
+                carRotY = car.transform.eulerAngles.y;
+            }
+
+            SendUdp(new InputPayload {
+                type = "INPUT", id = MyPlayerId,
+                ix = ix, iz = iz,
+                rotY = InputSource.transform.eulerAngles.y,
+                y = InputSource.transform.position.y,
+                inCar = true, carX = carX, carY = carY, carZ = carZ, carRotY = carRotY
+            });
+            return;
         }
-        else
+
         {
-            // À pied : direction monde relative caméra.
             Vector3 dir = InputSource.GetDesiredWorldMove();
             ix = dir.x;
             iz = dir.z;
@@ -291,10 +312,7 @@ public class NetworkManager : MonoBehaviour
             if (dir.sqrMagnitude > 0.001f)
                 rotY = Quaternion.LookRotation(dir.normalized, Vector3.up).eulerAngles.y;
             SendInput(ix, iz, rotY, InputSource.transform.position.y);
-            return;
         }
-
-        SendInput(ix, iz, InputSource.transform.eulerAngles.y, InputSource.transform.position.y);
     }
 
     void OnTcpChunkReceived(string chunk)
@@ -362,6 +380,12 @@ public class NetworkManager : MonoBehaviour
                 break;
             case "PLAYER_HIT":
                 OnPlayerHit?.Invoke(JsonUtility.FromJson<PlayerHitMessage>(json));
+                break;
+            case "BONUS_SPAWN":
+                OnBonusSpawn?.Invoke(JsonUtility.FromJson<BonusSpawnMessage>(json));
+                break;
+            case "GAME_OVER":
+                OnGameOver?.Invoke(JsonUtility.FromJson<GameOverMessage>(json));
                 break;
             case "ERROR":
                 OnError?.Invoke(JsonUtility.FromJson<ErrorMessage>(json));
@@ -438,6 +462,11 @@ public class NetworkManager : MonoBehaviour
         public float iz;
         public float rotY;
         public float y;
+        public bool inCar;
+        public float carX;
+        public float carY;
+        public float carZ;
+        public float carRotY;
     }
 
     [Serializable]

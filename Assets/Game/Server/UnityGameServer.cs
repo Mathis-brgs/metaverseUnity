@@ -32,6 +32,10 @@ public class UnityGameServer : MonoBehaviour
     public event Action<string, float, float, float, float> PlayerTeleport; // id, x, y, z, rotY (MOVE legacy)
     public event Action<string, string> CarEnterRequested; // playerId, carId
     public event Action<string> CarExitRequested;          // playerId
+    public event Action<string, string> BonusTaken;        // bonusId, byPlayerId
+    public event Action GameReset;
+
+    public const int WinScore = 10;
 
     TcpListener _listener;
     UdpClient _udp;
@@ -185,13 +189,20 @@ public class UnityGameServer : MonoBehaviour
             _udpEndpoints.Remove(client.PlayerId);
 
             bool wasKnown = World.Players.ContainsKey(client.PlayerId);
-            World.RemovePlayer(client.PlayerId);
+            string pid = client.PlayerId;
+            World.RemovePlayer(pid);
+
+            // Purge les combos liés à ce joueur pour éviter une fuite mémoire.
+            var keysToRemove = new List<string>();
+            foreach (var k in _attackCombos.Keys)
+                if (k.StartsWith(pid + ">") || k.EndsWith(">" + pid)) keysToRemove.Add(k);
+            foreach (var k in keysToRemove) _attackCombos.Remove(k);
 
             if (wasKnown)
             {
-                PlayerLeft?.Invoke(client.PlayerId);
-                Broadcast(new PlayerLeftMessage { type = "PLAYER_LEFT", id = client.PlayerId });
-                if (LogMessages) Debug.Log($"[UnityGameServer] [-] {client.PlayerId} déconnecté");
+                PlayerLeft?.Invoke(pid);
+                Broadcast(new PlayerLeftMessage { type = "PLAYER_LEFT", id = pid });
+                if (LogMessages) Debug.Log($"[UnityGameServer] [-] {pid} déconnecté");
             }
         }
         client.Close();
@@ -233,14 +244,16 @@ public class UnityGameServer : MonoBehaviour
         _clientById[id] = sender;
 
         bool hasSpawnPos = IsValid(msg.x) && IsValid(msg.y) && IsValid(msg.z);
+        float spawnX = hasSpawnPos ? msg.x : 0f;
+        float spawnY = hasSpawnPos ? msg.y : 0f;
+        float spawnZ = hasSpawnPos ? msg.z : 0f;
         var player = new PlayerState
         {
             Id = id,
             Name = string.IsNullOrEmpty(msg.name) ? id : msg.name,
             Character = string.IsNullOrEmpty(msg.character) ? "barbarian" : msg.character,
-            X = hasSpawnPos ? msg.x : 0f,
-            Y = hasSpawnPos ? msg.y : 0f,
-            Z = hasSpawnPos ? msg.z : 0f,
+            X = spawnX, Y = spawnY, Z = spawnZ,
+            SpawnX = spawnX, SpawnY = spawnY, SpawnZ = spawnZ,
             RotY = IsValid(msg.rotY) ? msg.rotY : 0f,
         };
         World.Players[id] = player;
@@ -332,10 +345,24 @@ public class UnityGameServer : MonoBehaviour
     void HandleInput(InputMessage msg, IPEndPoint remote)
     {
         if (msg == null || string.IsNullOrEmpty(msg.id)) return;
-        if (!World.Players.ContainsKey(msg.id)) return;
+        if (!World.Players.TryGetValue(msg.id, out var player)) return;
         if (!IsValid(msg.ix) || !IsValid(msg.iz) || !IsValid(msg.rotY)) return;
 
         _udpEndpoints[msg.id] = remote;
+
+        // Le client est autoritaire sur la position de sa propre voiture :
+        // on utilise sa position plutôt que la simulation physique serveur.
+        // Cela évite la divergence qui cause le TP à la sortie de voiture.
+        if (msg.inCar && !string.IsNullOrEmpty(player.InCarId)
+            && IsValid(msg.carX) && IsValid(msg.carY) && IsValid(msg.carZ)
+            && World.Cars.TryGetValue(player.InCarId, out var carState))
+        {
+            carState.X = msg.carX;
+            carState.Y = msg.carY;
+            carState.Z = msg.carZ;
+            carState.RotY = msg.carRotY;
+        }
+
         float y = IsValid(msg.y) ? msg.y : float.NaN;
         PlayerInputReceived?.Invoke(msg.id, Mathf.Clamp(msg.ix, -1f, 1f), Mathf.Clamp(msg.iz, -1f, 1f), msg.rotY, y);
     }
@@ -390,11 +417,14 @@ public class UnityGameServer : MonoBehaviour
     public void CollectBonus(string bonusId, string playerId)
     {
         if (string.IsNullOrEmpty(bonusId)) return;
+        if (!World.Bonuses.ContainsKey(bonusId)) return; // bonus inconnu = rejeté
 
         bool collected = World.TryCollectBonus(bonusId, playerId);
         if (!collected) return;
 
-        int newScore = World.Players.TryGetValue(playerId, out var p) ? p.Score : 0;
+        if (!World.Players.TryGetValue(playerId, out var p)) return;
+        int newScore = p.Score;
+
         Broadcast(new BonusTakenMessage
         {
             type = "BONUS_TAKEN",
@@ -402,7 +432,50 @@ public class UnityGameServer : MonoBehaviour
             byPlayerId = playerId,
             newScore = newScore
         });
+        BonusTaken?.Invoke(bonusId, playerId);
+
         if (LogMessages) Debug.Log($"[UnityGameServer] {playerId} a pris {bonusId} (score {newScore})");
+
+        if (newScore >= WinScore)
+            TriggerGameOver(p);
+    }
+
+    void TriggerGameOver(PlayerState winner)
+    {
+        Debug.Log($"[UnityGameServer] FIN DE MANCHE — {winner.Name} gagne avec {winner.Score} pts !");
+
+        // Annonce à chaque joueur sa propre position de respawn.
+        foreach (var kv in _clientById)
+        {
+            if (!World.Players.TryGetValue(kv.Key, out var p)) continue;
+            SendTo(kv.Value, new GameOverMessage
+            {
+                type = "GAME_OVER",
+                winnerId = winner.Id,
+                winnerName = winner.Name,
+                winnerScore = winner.Score,
+                spawnX = p.SpawnX,
+                spawnY = p.SpawnY,
+                spawnZ = p.SpawnZ
+            });
+        }
+
+        // Reset côté serveur : scores, positions, bonus.
+        World.ResetAllScores();
+        foreach (var p in World.Players.Values)
+        {
+            p.X = p.SpawnX;
+            p.Y = p.SpawnY;
+            p.Z = p.SpawnZ;
+        }
+        GameReset?.Invoke();
+    }
+
+    public void NotifyBonusSpawn(string bonusId, float x, float y, float z)
+    {
+        World.ResetBonusState(bonusId);
+        World.AddOrUpdateBonus(bonusId, x, y, z);
+        Broadcast(new BonusSpawnMessage { type = "BONUS_SPAWN", bonusId = bonusId, x = x, y = y, z = z });
     }
 
     public void NotifyCarEntered(string carId, string driverId)
@@ -433,8 +506,9 @@ public class UnityGameServer : MonoBehaviour
         var bonuses = new List<NetBonusSnapshot>();
         foreach (var b in World.Bonuses.Values)
         {
-            if (b.IsCollected) continue;
-            bonuses.Add(new NetBonusSnapshot { id = b.Id, x = b.X, y = b.Y, z = b.Z });
+            // On envoie TOUS les bonus (actifs ET collectés) pour que le client distingue
+            // "collecté" (collected=true → cacher) de "inconnu du serveur" (absent → garder visible).
+            bonuses.Add(new NetBonusSnapshot { id = b.Id, x = b.X, y = b.Y, z = b.Z, collected = b.IsCollected });
         }
 
         var cars = new List<NetCarSnapshot>();

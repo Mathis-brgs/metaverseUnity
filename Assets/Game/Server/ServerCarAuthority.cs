@@ -18,17 +18,34 @@ public class ServerCarAuthority : MonoBehaviour
     public void Bind(UnityGameServer server)
     {
         _server = server;
-        _server.CarEnterRequested += OnEnterRequested;
-        _server.CarExitRequested += OnExitRequested;
+        _server.CarEnterRequested   += OnEnterRequested;
+        _server.CarExitRequested    += OnExitRequested;
         _server.PlayerInputReceived += OnPlayerInput;
+        _server.PlayerLeft          += OnPlayerLeft;
     }
 
     void OnDestroy()
     {
         if (_server == null) return;
-        _server.CarEnterRequested -= OnEnterRequested;
-        _server.CarExitRequested -= OnExitRequested;
+        _server.CarEnterRequested   -= OnEnterRequested;
+        _server.CarExitRequested    -= OnExitRequested;
         _server.PlayerInputReceived -= OnPlayerInput;
+        _server.PlayerLeft          -= OnPlayerLeft;
+    }
+
+    void OnPlayerLeft(string playerId)
+    {
+        _driverInput.Remove(playerId);
+
+        // Si ce joueur conduisait une voiture, la libérer.
+        foreach (var kv in _server.World.Cars)
+        {
+            if (kv.Value.DriverId != playerId) continue;
+            if (_cars.TryGetValue(kv.Key, out var car) && car != null)
+                car.EndNetworkDrive();
+            // WorldState déjà nettoyé par RemovePlayer → TryExitCar.
+            break;
+        }
     }
 
     void Start()
@@ -98,7 +115,14 @@ public class ServerCarAuthority : MonoBehaviour
         if (_cars.TryGetValue(carId, out var car))
         {
             car.EndNetworkDrive();
-            // Repositionne le joueur à côté de la voiture.
+
+            // Avant de calculer la position de sortie, on aligne le transform serveur
+            // sur le WorldState (mis à jour par la position du client dans chaque INPUT).
+            // Sans ce snap, car.GetExitPosition() utilise la position physique du serveur
+            // qui a divergé de celle du client → le joueur se téléporte à la sortie.
+            if (_server.World.Cars.TryGetValue(carId, out var cs))
+                car.SnapToPosition(new Vector3(cs.X, cs.Y, cs.Z), cs.RotY);
+
             var proxy = FindProxy(playerId);
             if (proxy != null)
                 proxy.transform.position = car.GetExitPosition();
@@ -124,13 +148,18 @@ public class ServerCarAuthority : MonoBehaviour
                 {
                     Vector2 input = _driverInput.TryGetValue(carState.DriverId, out var v) ? v : Vector2.zero;
                     car.SetNetworkInput(input);
+                    // Le client envoie sa position de voiture dans chaque INPUT (client-autoritaire).
+                    // Ne pas écraser carState avec la physique serveur — HandleInput l'a déjà mis à jour.
                 }
-
-                Vector3 p = car.transform.position;
-                carState.X = p.x;
-                carState.Y = p.y;
-                carState.Z = p.z;
-                carState.RotY = car.transform.eulerAngles.y;
+                else
+                {
+                    // Pas de conducteur : la physique serveur (ou animation) fait autorité.
+                    Vector3 p = car.transform.position;
+                    carState.X = p.x;
+                    carState.Y = p.y;
+                    carState.Z = p.z;
+                    carState.RotY = car.transform.eulerAngles.y;
+                }
 
                 if (!string.IsNullOrEmpty(carState.DriverId)
                     && _server.World.Players.TryGetValue(carState.DriverId, out var driver))

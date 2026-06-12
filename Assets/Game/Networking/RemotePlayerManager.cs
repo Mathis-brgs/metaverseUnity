@@ -19,7 +19,9 @@ public class RemotePlayerManager : MonoBehaviour
     public CharacterPrefabEntry[] CharacterPrefabs;
 
     [Tooltip("Seuil (m) au-delà duquel le joueur local est resynchronisé sur la position serveur.")]
-    public float LocalReconcileThreshold = 5f;
+    public float LocalReconcileThreshold = 6f;
+    [Tooltip("Vitesse de lerp pour rattraper le serveur (0 = snap instantané).")]
+    public float ReconcileLerpSpeed = 8f;
     public float InterpolationSpeed = 12f;
 
     NetworkManager _net;
@@ -65,6 +67,7 @@ public class RemotePlayerManager : MonoBehaviour
         _net.OnCarEntered.AddListener(HandleCarEntered);
         _net.OnCarExited.AddListener(HandleCarExited);
         _net.OnPlayerHit.AddListener(HandlePlayerHit);
+        _net.OnGameOver.AddListener(HandleGameOver);
     }
 
     void OnDisable()
@@ -77,6 +80,7 @@ public class RemotePlayerManager : MonoBehaviour
         _net.OnCarEntered.RemoveListener(HandleCarEntered);
         _net.OnCarExited.RemoveListener(HandleCarExited);
         _net.OnPlayerHit.RemoveListener(HandlePlayerHit);
+        _net.OnGameOver.RemoveListener(HandleGameOver);
     }
 
     void HandleInitState(InitStateMessage msg)
@@ -92,7 +96,7 @@ public class RemotePlayerManager : MonoBehaviour
                     SyncLocalCarState(p.inCarId);
                     continue;
                 }
-                SpawnRemote(p.id, p.character, p.x, p.y, p.z, p.rotY);
+                SpawnRemote(p.id, p.character, p.x, p.y, p.z, p.rotY, p.name);
                 if (!string.IsNullOrEmpty(p.inCarId))
                 {
                     _inCar[p.id] = true;
@@ -116,7 +120,7 @@ public class RemotePlayerManager : MonoBehaviour
     void HandlePlayerJoin(PlayerJoinMessage msg)
     {
         if (msg.id == _net.MyPlayerId) return; // on ne se respawn pas soi-même
-        SpawnRemote(msg.id, msg.character, msg.x, msg.y, msg.z, 0f);
+        SpawnRemote(msg.id, msg.character, msg.x, msg.y, msg.z, 0f, msg.name);
     }
 
     void HandlePlayerLeft(PlayerLeftMessage msg)
@@ -160,6 +164,7 @@ public class RemotePlayerManager : MonoBehaviour
 
         if (driverId == _net.MyPlayerId)
         {
+            NotifyLocalCarExit(); // Bloque ReconcileLocal 1.5s après la sortie
             if (_net.InputSource != null && _net.InputSource.IsDrivingCar)
                 _net.InputSource.ExitCarFromNetwork();
             return;
@@ -332,18 +337,41 @@ public class RemotePlayerManager : MonoBehaviour
             _net.InputSource.ExitCarFromNetwork();
     }
 
+    float _carExitTime = -999f;
+
+    public void NotifyLocalCarExit()
+    {
+        // Appelé par HandleCarExited quand c'est le joueur local qui sort.
+        // Bloque la réconciliation pendant 1.5s pour éviter le snap résiduel
+        // dû au délai réseau entre la sortie client et la mise à jour STATE serveur.
+        _carExitTime = Time.time;
+    }
+
     void ReconcileLocal(NetPlayerPosition serverPos)
     {
         if (_net.InputSource == null) return;
         if (!string.IsNullOrEmpty(serverPos.inCarId)) return;
         if (_net.InputSource.IsDrivingCar || _net.InputSource.IsKnockedDown) return;
 
+        // Juste après une sortie de voiture, on ignore la réconciliation le temps
+        // que le STATE serveur reflète la nouvelle position du joueur.
+        if (Time.time - _carExitTime < 1.5f) return;
+
         Vector3 serverPos3 = new Vector3(serverPos.x, serverPos.y, serverPos.z);
+        // Guard : position (0,0,0) = serveur n'a pas encore reçu d'input.
+        if (serverPos3.sqrMagnitude < 0.01f) return;
+
         Transform local = _net.InputSource.transform;
 
         // Resync d'urgence uniquement (teleport / bug) — le mouvement courant reste côté client.
-        if ((local.position - serverPos3).sqrMagnitude > LocalReconcileThreshold * LocalReconcileThreshold)
-            local.position = serverPos3;
+        float distSqr = (local.position - serverPos3).sqrMagnitude;
+        if (distSqr > LocalReconcileThreshold * LocalReconcileThreshold)
+        {
+            if (ReconcileLerpSpeed <= 0f)
+                local.position = serverPos3;
+            else
+                local.position = Vector3.Lerp(local.position, serverPos3, Time.deltaTime * ReconcileLerpSpeed);
+        }
     }
 
     void SetRemoteVisible(string id, bool visible)
@@ -375,7 +403,7 @@ public class RemotePlayerManager : MonoBehaviour
         return null;
     }
 
-    void SpawnRemote(string id, string character, float x, float y, float z, float rotY)
+    void SpawnRemote(string id, string character, float x, float y, float z, float rotY, string playerName = "")
     {
         if (_spawned.ContainsKey(id)) return;
 
@@ -404,6 +432,13 @@ public class RemotePlayerManager : MonoBehaviour
 
         var anim = go.GetComponentInChildren<Animator>();
         if (anim != null) _animators[id] = anim;
+
+        // Affiche le pseudo au-dessus de la tête du joueur distant.
+        if (!string.IsNullOrEmpty(playerName))
+        {
+            var cs = go.GetComponentInChildren<CharacterScore>();
+            if (cs != null) cs.SetDisplayName(playerName);
+        }
 
         var startPos = new Vector3(x, y, z);
         _spawned[id] = go;
@@ -440,6 +475,15 @@ public class RemotePlayerManager : MonoBehaviour
         if (col != null) Destroy(col);
 
         return skin;
+    }
+
+    void HandleGameOver(GameOverMessage msg)
+    {
+        // Téléporte le joueur local à sa position de spawn.
+        if (_net.InputSource != null)
+            _net.InputSource.transform.position = new Vector3(msg.spawnX, msg.spawnY, msg.spawnZ);
+
+        // Les scores seront remis à 0 côté HUD par ScorePanelHUD.
     }
 
     GameObject FindPrefab(string characterName)

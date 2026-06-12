@@ -6,13 +6,19 @@ public class CharacterScore : MonoBehaviour
     public TMPro.TMP_Text TxtScore;
 
     NetworkManager _net;
+    string _displayName = "";
 
     void Start()
     {
         _net = FindFirstObjectByType<NetworkManager>();
         if (_net != null)
+        {
             _net.OnBonusTaken.AddListener(OnBonusTaken);
-        UpdateScoreText();
+            // Pour le joueur local, on affiche son propre pseudo dès le départ.
+            if (!string.IsNullOrEmpty(_net.PlayerName))
+                SetDisplayName(_net.PlayerName);
+        }
+        RefreshLabel();
     }
 
     void OnDestroy()
@@ -21,20 +27,29 @@ public class CharacterScore : MonoBehaviour
             _net.OnBonusTaken.RemoveListener(OnBonusTaken);
     }
 
+    /// <summary>Appelé par RemotePlayerManager pour afficher le pseudo du joueur distant.</summary>
+    public void SetDisplayName(string name)
+    {
+        _displayName = name;
+        RefreshLabel();
+    }
+
+    void RefreshLabel()
+    {
+        if (TxtScore == null) return;
+        // Affiche le pseudo au-dessus de la tête ; le score est dans le HUD scoreboard.
+        TxtScore.text = _displayName;
+    }
+
     void OnBonusTaken(BonusTakenMessage msg)
     {
         if (_net == null || msg.byPlayerId != _net.MyPlayerId) return;
         Score = msg.newScore;
-        UpdateScoreText();
+        // Score non affiché ici (géré par ScorePanelHUD).
     }
 
-    public void AddScore(int points) {
-      Score += points;
-      UpdateScoreText();
-    }
-
-    void UpdateScoreText() {
-      if (TxtScore == null) { return; }
-      TxtScore.text = Score.ToString();
+    public void AddScore(int points)
+    {
+        Score += points;
     }
 }

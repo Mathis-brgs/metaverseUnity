@@ -43,6 +43,7 @@ public class ServerBootstrap : MonoBehaviour
         _server.PlayerLeft += OnPlayerLeft;
         _server.PlayerInputReceived += OnPlayerInput;
         _server.PlayerTeleport += OnPlayerTeleport;
+        _server.GameReset += OnGameReset;
 
         // Autorités de scène
         gameObject.AddComponent<ServerBonusAuthority>().Bind(_server);
@@ -59,6 +60,7 @@ public class ServerBootstrap : MonoBehaviour
         _server.PlayerLeft -= OnPlayerLeft;
         _server.PlayerInputReceived -= OnPlayerInput;
         _server.PlayerTeleport -= OnPlayerTeleport;
+        _server.GameReset -= OnGameReset;
     }
 
     // ---------------- Proxies joueurs ----------------
@@ -86,6 +88,16 @@ public class ServerBootstrap : MonoBehaviour
         {
             if (proxy != null) Destroy(proxy.gameObject);
             _proxies.Remove(playerId);
+        }
+    }
+
+    void OnGameReset()
+    {
+        // Téléporte chaque proxy à sa position de spawn initiale.
+        foreach (var proxy in _proxies.Values)
+        {
+            if (proxy == null) continue;
+            proxy.ApplyDirectPosition(proxy.SpawnPosition, 0f);
         }
     }
 

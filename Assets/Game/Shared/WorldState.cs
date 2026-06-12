@@ -17,6 +17,11 @@ public class PlayerState
     public float RotY;
     public int Score;
 
+    // Position de spawn initiale (envoyée dans JOIN, utilisée pour le reset fin de manche).
+    public float SpawnX;
+    public float SpawnY;
+    public float SpawnZ;
+
     // Voiture actuellement conduite par ce joueur (null si à pied).
     public string InCarId;
 
@@ -107,6 +112,18 @@ public class WorldState
         bonus.X = x;
         bonus.Y = y;
         bonus.Z = z;
+    }
+
+    public void ResetAllScores()
+    {
+        foreach (var p in Players.Values)
+            p.Score = 0;
+    }
+
+    public void ResetBonusState(string bonusId)
+    {
+        if (Bonuses.TryGetValue(bonusId, out var b))
+            b.IsCollected = false;
     }
 
     public bool TryCollectBonus(string bonusId, string byPlayerId)

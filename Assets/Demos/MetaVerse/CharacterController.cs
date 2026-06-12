@@ -57,6 +57,11 @@ public class CharacterController : MonoBehaviour
     bool isDriving;
     bool isKnockedDown;
 
+    /// <summary>
+    /// Quand true, tous les inputs joueur sont ignorés (ex: pendant l'écran de fin de partie).
+    /// </summary>
+    public static bool InputFrozen;
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -82,7 +87,7 @@ public class CharacterController : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
-        if (isDriving || isKnockedDown) {
+        if (isDriving || isKnockedDown || InputFrozen) {
           Anim.SetFloat("Walk", 0f);
           return;
         }
@@ -129,7 +134,7 @@ public class CharacterController : MonoBehaviour
 
     void Update()
     {
-        if (Keyboard.current == null) { return; }
+        if (Keyboard.current == null || InputFrozen) { return; }
 
         Key interactKey = Player == CharacterPlayer.Player1 ? Player1InteractKey : Player2InteractKey;
         if (Keyboard.current[interactKey].wasPressedThisFrame) {
@@ -208,6 +213,10 @@ public class CharacterController : MonoBehaviour
 
     public bool IsDrivingCar {
       get { return isDriving; }
+    }
+
+    public DrivableCar CurrentCar {
+      get { return currentCar; }
     }
 
     public bool IsKnockedDown {
